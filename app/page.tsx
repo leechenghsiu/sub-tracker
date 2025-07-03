@@ -5,10 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Sun, Moon, Laptop, Trash2, LogIn, LogOut, ListChecks, Menu, X, Plus } from "lucide-react";
+import { Sun, Moon, Laptop, LogIn, LogOut, ListChecks, Menu, X, Plus } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -26,6 +26,9 @@ type Subscription = {
   note?: string;
   createdAt: string;
   deletedAt: string | null;
+  selfRatio: number;
+  advanceRatio: number;
+  isAdvance: boolean;
 };
 
 function ThemeToggle() {
@@ -272,24 +275,6 @@ export default function Home() {
     }
   }
 
-  // 刪除訂閱
-  async function handleDelete(id: string) {
-    setLoading(true);
-    try {
-      await fetch("/api/subscription", {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ id })
-      });
-      fetchSubscriptions(token!);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   if (isLoading) {
     return <div />;
   }
@@ -459,33 +444,137 @@ export default function Home() {
             </DialogContent>
           </Dialog>
         </div>
-        <div className="space-y-2 flex-1">
+        <div className="space-y-2">
           {subscriptions.length === 0 ? (
-            <div className="flex flex-col items-center h-full justify-center text-muted-foreground">
+            <div className="flex flex-col items-center justify-center h-screen text-muted-foreground">
               <ListChecks className="w-12 h-12 mb-4 opacity-60" />
               <div className="text-lg font-semibold mb-2">目前沒有任何訂閱</div>
-              <div className="mb-8 text-sm">點擊「新增訂閱」來開始管理你的訂閱項目！</div>
+              <div className="mb-4 text-sm">點擊「新增訂閱」來開始管理你的訂閱項目！</div>
               <Button variant="default" className="flex items-center gap-2" onClick={() => setOpen(true)}>
                 <Plus className="w-4 h-4" /> 新增訂閱
               </Button>
             </div>
           ) : (
-            subscriptions.map(sub => (
-              <Card key={sub._id}>
-                <CardContent className="flex justify-between items-center py-4">
-                  <div>
-                    <div className="font-bold text-lg">{sub.name}</div>
-                    <div className="text-sm">{sub.price} {sub.currency} / {sub.cycle}</div>
-                    <div className="text-xs text-gray-500">帳單日: {new Date(sub.billingDate).toLocaleDateString()}</div>
-                    {sub.note && <div className="text-xs text-gray-400">{sub.note}</div>}
-                  </div>
-                  <Button variant="destructive" onClick={() => handleDelete(sub._id)} disabled={loading}><Trash2 className="w-4 h-4 mr-1" />刪除</Button>
-                </CardContent>
-              </Card>
-            ))
+            <Tabs defaultValue="monthly" className="w-full">
+              <TabsList className="w-full grid grid-cols-3 mb-4">
+                <TabsTrigger value="monthly">每月花費</TabsTrigger>
+                <TabsTrigger value="halfyear">每半年花費</TabsTrigger>
+                <TabsTrigger value="yearly">每年花費</TabsTrigger>
+              </TabsList>
+              <TabsContent value="monthly">
+                <TotalAmount subscriptions={subscriptions} mode="monthly" />
+                <SubscriptionList subscriptions={subscriptions} mode="monthly" />
+              </TabsContent>
+              <TabsContent value="halfyear">
+                <TotalAmount subscriptions={subscriptions} mode="halfyear" />
+                <SubscriptionList subscriptions={subscriptions} mode="halfyear" />
+              </TabsContent>
+              <TabsContent value="yearly">
+                <TotalAmount subscriptions={subscriptions} mode="yearly" />
+                <SubscriptionList subscriptions={subscriptions} mode="yearly" />
+              </TabsContent>
+            </Tabs>
           )}
         </div>
     </div>
     </>
+  );
+}
+
+// 匯率常數（可自行調整）
+const EXCHANGE_RATE: Record<string, number> = {
+  TWD: 1,
+  USD: 32,
+  JPY: 0.21,
+  EUR: 35
+};
+
+function TotalAmount({ subscriptions, mode }: { subscriptions: Subscription[]; mode: 'monthly' | 'halfyear' | 'yearly' }) {
+  // 計算每個訂閱「自己實際支出」的金額
+  function getSelfAmount(sub: Subscription) {
+    const total = Number(sub.price) || 0;
+    const self = Number(sub.selfRatio) || 1;
+    const adv = Number(sub.advanceRatio) || 0;
+    // 只算自己實際支出，不含代墊
+    return total * (self / (self + (sub.isAdvance ? adv : 0)));
+  }
+  // 換算成目標週期的金額
+  function convert(amount: number, cycle: string) {
+    if (mode === 'monthly') {
+      if (cycle === 'monthly') return amount;
+      if (cycle === 'halfyear') return amount / 6;
+      if (cycle === 'yearly') return amount / 12;
+    }
+    if (mode === 'halfyear') {
+      if (cycle === 'monthly') return amount * 6;
+      if (cycle === 'halfyear') return amount;
+      if (cycle === 'yearly') return amount / 2;
+    }
+    if (mode === 'yearly') {
+      if (cycle === 'monthly') return amount * 12;
+      if (cycle === 'halfyear') return amount * 2;
+      if (cycle === 'yearly') return amount;
+    }
+    return amount;
+  }
+  // 換算成台幣
+  function toTWD(amount: number, currency: string) {
+    return amount * (EXCHANGE_RATE[currency] || 1);
+  }
+  const total = subscriptions.reduce((sum, sub) =>
+    sum + toTWD(convert(getSelfAmount(sub), sub.cycle), sub.currency), 0);
+  return (
+    <div className="text-xl font-bold mb-4 text-center">
+      總花費：約 {Math.round(total)} TWD / {mode === 'monthly' ? '月' : mode === 'halfyear' ? '半年' : '年'}
+    </div>
+  );
+}
+
+function SubscriptionList({ subscriptions, mode }: { subscriptions: Subscription[]; mode: 'monthly' | 'halfyear' | 'yearly' }) {
+  // 換算金額
+  function convert(amount: number, cycle: string) {
+    if (mode === 'monthly') {
+      if (cycle === 'monthly') return amount;
+      if (cycle === 'halfyear') return amount / 6;
+      if (cycle === 'yearly') return amount / 12;
+    }
+    if (mode === 'halfyear') {
+      if (cycle === 'monthly') return amount * 6;
+      if (cycle === 'halfyear') return amount;
+      if (cycle === 'yearly') return amount / 2;
+    }
+    if (mode === 'yearly') {
+      if (cycle === 'monthly') return amount * 12;
+      if (cycle === 'halfyear') return amount * 2;
+      if (cycle === 'yearly') return amount;
+    }
+    return amount;
+  }
+  return (
+    <div className="space-y-2">
+      {subscriptions.map(sub => {
+        const total = Number(sub.price) || 0;
+        const self = Number(sub.selfRatio) || 1;
+        const adv = Number(sub.advanceRatio) || 0;
+        // 只算自己實際支出，不含代墊
+        const myAmount = total * (self / (self + (sub.isAdvance ? adv : 0)));
+        const displayAmount = convert(myAmount, sub.cycle);
+        return (
+          <Card key={sub._id} className="mb-2">
+            <CardContent className="flex justify-between items-center py-4">
+              <div>
+                <div className="font-bold text-lg">{sub.name}</div>
+                <div className="text-sm">
+                  {Math.floor(displayAmount)} {sub.currency}
+                </div>
+                <div className="text-xs text-gray-500">
+                  每{sub.cycle === 'monthly' ? '月' : sub.cycle === 'halfyear' ? '半年' : '年'}{new Date(sub.billingDate).getDate()}號
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
   );
 }
