@@ -6,31 +6,20 @@ import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sun, Moon, Laptop, LogIn, LogOut, ListChecks, Menu, X, Plus } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Subscription } from "../components/types";
+import EmptyState from "../components/EmptyState";
+import OverviewTabs from "../components/OverviewTabs";
 
-type Subscription = {
-  _id: string;
-  name: string;
-  price: number;
-  currency: string;
-  billingDate: string;
-  cycle: string;
-  note?: string;
-  createdAt: string;
-  deletedAt: string | null;
-  selfRatio: number;
-  advanceRatio: number;
-  isAdvance: boolean;
-};
-
+// 移除 Subscription type，改由 components/types 匯入
 function ThemeToggle() {
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
   const [mounted, setMounted] = useState(false);
@@ -187,6 +176,8 @@ export default function Home() {
   const [date, setDate] = useState<Date | undefined>(form.billingDate ? new Date(form.billingDate) : undefined);
   // 新增: Dialog 開關 state
   const [open, setOpen] = useState(false);
+  // 在 Home 組件內部 state 區域加：
+  const [tabMode, setTabMode] = useState<'monthly' | 'halfyear' | 'yearly'>('monthly');
 
   // 頁面載入時自動讀取 localStorage
   useEffect(() => {
@@ -314,18 +305,18 @@ export default function Home() {
   return (
     <>
       <Navbar onLogout={handleLogout} token={token} />
-      <div className="flex flex-col max-w-xl mx-auto p-4" style={{height: 'calc(100vh - 68px)'}}>
-        <div className="flex justify-between items-center mb-4 h-[36px]">
+      {/* 置頂區塊 */}
+      <div className="flex justify-between items-center mb-4 max-w-xl mx-auto p-4">
           <h2 className="text-xl flex items-center"><ListChecks className="w-5 h-5 mr-2" />訂閱列表</h2>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              {subscriptions.length > 0 && <Button variant="default" className="flex items-center gap-2" onClick={() => setOpen(true)}><Plus className="w-4 h-4" />新增訂閱</Button>}
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>新增訂閱</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleAdd} className="flex flex-col gap-4 mt-4">
+          <Button variant="default" className="flex items-center gap-2" onClick={() => setOpen(true)}><Plus className="w-4 h-4" />新增訂閱</Button>
+        </div>
+      {/* Dialog 不包在主內容區 */}
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>新增訂閱</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleAdd} className="flex flex-col gap-4 mt-4">
                 <div>
                   <label className="block mb-1 text-sm font-medium">訂閱名稱</label>
                   <Input placeholder="Cursor Pro" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
@@ -443,138 +434,14 @@ export default function Home() {
               </form>
             </DialogContent>
           </Dialog>
-        </div>
-        <div className="space-y-2">
+      {/* 主內容區 */}
+      <div className="max-w-xl mx-auto p-4 flex-1 flex flex-col">
           {subscriptions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-screen text-muted-foreground">
-              <ListChecks className="w-12 h-12 mb-4 opacity-60" />
-              <div className="text-lg font-semibold mb-2">目前沒有任何訂閱</div>
-              <div className="mb-4 text-sm">點擊「新增訂閱」來開始管理你的訂閱項目！</div>
-              <Button variant="default" className="flex items-center gap-2" onClick={() => setOpen(true)}>
-                <Plus className="w-4 h-4" /> 新增訂閱
-              </Button>
-            </div>
-          ) : (
-            <Tabs defaultValue="monthly" className="w-full">
-              <TabsList className="w-full grid grid-cols-3 mb-4">
-                <TabsTrigger value="monthly">每月花費</TabsTrigger>
-                <TabsTrigger value="halfyear">每半年花費</TabsTrigger>
-                <TabsTrigger value="yearly">每年花費</TabsTrigger>
-              </TabsList>
-              <TabsContent value="monthly">
-                <TotalAmount subscriptions={subscriptions} mode="monthly" />
-                <SubscriptionList subscriptions={subscriptions} mode="monthly" />
-              </TabsContent>
-              <TabsContent value="halfyear">
-                <TotalAmount subscriptions={subscriptions} mode="halfyear" />
-                <SubscriptionList subscriptions={subscriptions} mode="halfyear" />
-              </TabsContent>
-              <TabsContent value="yearly">
-                <TotalAmount subscriptions={subscriptions} mode="yearly" />
-                <SubscriptionList subscriptions={subscriptions} mode="yearly" />
-              </TabsContent>
-            </Tabs>
-          )}
-        </div>
-    </div>
+          <EmptyState onAdd={() => setOpen(true)} />
+        ) : (
+          <OverviewTabs subscriptions={subscriptions} tabMode={tabMode} setTabMode={setTabMode} />
+        )}
+      </div>
     </>
-  );
-}
-
-// 匯率常數（可自行調整）
-const EXCHANGE_RATE: Record<string, number> = {
-  TWD: 1,
-  USD: 32,
-  JPY: 0.21,
-  EUR: 35
-};
-
-function TotalAmount({ subscriptions, mode }: { subscriptions: Subscription[]; mode: 'monthly' | 'halfyear' | 'yearly' }) {
-  // 計算每個訂閱「自己實際支出」的金額
-  function getSelfAmount(sub: Subscription) {
-    const total = Number(sub.price) || 0;
-    const self = Number(sub.selfRatio) || 1;
-    const adv = Number(sub.advanceRatio) || 0;
-    // 只算自己實際支出，不含代墊
-    return total * (self / (self + (sub.isAdvance ? adv : 0)));
-  }
-  // 換算成目標週期的金額
-  function convert(amount: number, cycle: string) {
-    if (mode === 'monthly') {
-      if (cycle === 'monthly') return amount;
-      if (cycle === 'halfyear') return amount / 6;
-      if (cycle === 'yearly') return amount / 12;
-    }
-    if (mode === 'halfyear') {
-      if (cycle === 'monthly') return amount * 6;
-      if (cycle === 'halfyear') return amount;
-      if (cycle === 'yearly') return amount / 2;
-    }
-    if (mode === 'yearly') {
-      if (cycle === 'monthly') return amount * 12;
-      if (cycle === 'halfyear') return amount * 2;
-      if (cycle === 'yearly') return amount;
-    }
-    return amount;
-  }
-  // 換算成台幣
-  function toTWD(amount: number, currency: string) {
-    return amount * (EXCHANGE_RATE[currency] || 1);
-  }
-  const total = subscriptions.reduce((sum, sub) =>
-    sum + toTWD(convert(getSelfAmount(sub), sub.cycle), sub.currency), 0);
-  return (
-    <div className="text-xl font-bold mb-4 text-center">
-      總花費：約 {Math.round(total)} TWD / {mode === 'monthly' ? '月' : mode === 'halfyear' ? '半年' : '年'}
-    </div>
-  );
-}
-
-function SubscriptionList({ subscriptions, mode }: { subscriptions: Subscription[]; mode: 'monthly' | 'halfyear' | 'yearly' }) {
-  // 換算金額
-  function convert(amount: number, cycle: string) {
-    if (mode === 'monthly') {
-      if (cycle === 'monthly') return amount;
-      if (cycle === 'halfyear') return amount / 6;
-      if (cycle === 'yearly') return amount / 12;
-    }
-    if (mode === 'halfyear') {
-      if (cycle === 'monthly') return amount * 6;
-      if (cycle === 'halfyear') return amount;
-      if (cycle === 'yearly') return amount / 2;
-    }
-    if (mode === 'yearly') {
-      if (cycle === 'monthly') return amount * 12;
-      if (cycle === 'halfyear') return amount * 2;
-      if (cycle === 'yearly') return amount;
-    }
-    return amount;
-  }
-  return (
-    <div className="space-y-2">
-      {subscriptions.map(sub => {
-        const total = Number(sub.price) || 0;
-        const self = Number(sub.selfRatio) || 1;
-        const adv = Number(sub.advanceRatio) || 0;
-        // 只算自己實際支出，不含代墊
-        const myAmount = total * (self / (self + (sub.isAdvance ? adv : 0)));
-        const displayAmount = convert(myAmount, sub.cycle);
-        return (
-          <Card key={sub._id} className="mb-2">
-            <CardContent className="flex justify-between items-center py-4">
-              <div>
-                <div className="font-bold text-lg">{sub.name}</div>
-                <div className="text-sm">
-                  {Math.floor(displayAmount)} {sub.currency}
-                </div>
-                <div className="text-xs text-gray-500">
-                  每{sub.cycle === 'monthly' ? '月' : sub.cycle === 'halfyear' ? '半年' : '年'}{new Date(sub.billingDate).getDate()}號
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
-    </div>
   );
 }
