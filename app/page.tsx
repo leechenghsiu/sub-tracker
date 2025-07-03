@@ -1,5 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Alert } from "@/components/ui/alert";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Sun, Moon, Laptop, Trash2, LogIn, LogOut, UserPlus, ListChecks, Menu, X } from "lucide-react";
 
 type Subscription = {
   _id: string;
@@ -12,6 +18,139 @@ type Subscription = {
   createdAt: string;
   deletedAt: string | null;
 };
+
+function ThemeToggle() {
+  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light' || saved === 'dark') {
+      setTheme(saved);
+      document.documentElement.classList.toggle('dark', saved === 'dark');
+    } else {
+      setTheme('system');
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      document.documentElement.classList.toggle('dark', mq.matches);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (theme === 'system') {
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      const handler = (e: MediaQueryListEvent) => {
+        document.documentElement.classList.toggle('dark', e.matches);
+      };
+      mq.addEventListener('change', handler);
+      return () => mq.removeEventListener('change', handler);
+    }
+  }, [theme]);
+
+  function setAndApplyTheme(next: 'light' | 'dark' | 'system') {
+    setTheme(next);
+    if (next === 'light') {
+      localStorage.setItem('theme', 'light');
+      document.documentElement.classList.remove('dark');
+    } else if (next === 'dark') {
+      localStorage.setItem('theme', 'dark');
+      document.documentElement.classList.add('dark');
+    } else {
+      localStorage.removeItem('theme');
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      document.documentElement.classList.toggle('dark', mq.matches);
+    }
+  }
+
+  if (!mounted) return null;
+
+  const icon = theme === 'dark' ? <Moon className="w-5 h-5" /> : theme === 'light' ? <Sun className="w-5 h-5" /> : <Laptop className="w-5 h-5" />;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="ml-2" aria-label="切換主題">
+          {icon}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => setAndApplyTheme('light')}>
+          <Sun className="mr-2 w-4 h-4" /> 亮色
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setAndApplyTheme('dark')}>
+          <Moon className="mr-2 w-4 h-4" /> 暗色
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setAndApplyTheme('system')}>
+          <Laptop className="mr-2 w-4 h-4" /> 跟隨系統
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function Navbar({ onLogout, token }: { onLogout: () => void; token: string | null }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  return (
+    <nav className="w-full border-b bg-white dark:bg-black mb-6" style={{height: 68}}>
+      <div className="max-w-xl mx-auto flex items-center justify-between p-4">
+        <span className="font-bold text-lg tracking-wide">SubTracker</span>
+        {/* 桌面版 */}
+        <div className="hidden sm:flex items-center gap-2">
+          <ThemeToggle />
+          {token && <Button variant="outline" onClick={onLogout}><LogOut className="w-4 h-4 mr-2" />登出</Button>}
+        </div>
+        {/* 手機版漢堡選單+主題 */}
+        <div className="sm:hidden flex items-center gap-2">
+          <ThemeToggle />
+          <button
+            className="flex items-center justify-center w-8 h-8 relative"
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label="menu"
+          >
+            <span
+              className={`absolute transition-all duration-300 ${
+                menuOpen
+                  ? 'opacity-0 scale-75 rotate-45'
+                  : 'opacity-100 scale-100 rotate-0'
+              }`}
+            >
+              <Menu className="w-6 h-6" />
+            </span>
+            <span
+              className={`absolute transition-all duration-300 ${
+                menuOpen
+                  ? 'opacity-100 scale-100 rotate-0'
+                  : 'opacity-0 scale-75 -rotate-45'
+              }`}
+            >
+              <X className="w-6 h-6" />
+            </span>
+          </button>
+          {token && (
+            <>
+              <div
+                className={`fixed left-0 right-0 top-[68px] z-50 bg-white dark:bg-black flex flex-col items-center shadow-lg overflow-hidden transition-all duration-500 h-full
+                  ${menuOpen ? 'max-h-[calc(100vh-68px)] opacity-100 py-12' : 'max-h-0 opacity-0 py-0'}`}
+              >
+                <Button
+                  variant="ghost"
+                  className="w-40 mb-4 text-lg"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onLogout();
+                  }}
+                >
+                  <LogOut className="w-5 h-5 mr-2" />登出
+                </Button>
+                {/* 之後可在這裡加更多選單項目 */}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </nav>
+  );
+}
 
 export default function Home() {
   const [username, setUsername] = useState("");
@@ -141,60 +280,75 @@ export default function Home() {
   if (!token) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
-        <h1 className="text-2xl mb-4">訂閱管理登入</h1>
-        <form onSubmit={handleLogin} className="flex flex-col gap-2 w-64">
-          <input
-            className="border p-2 rounded"
-            placeholder="帳號"
-            value={username}
-            onChange={e => setUsername(e.target.value)}
-            autoFocus
-          />
-          <input
-            className="border p-2 rounded"
-            placeholder="密碼"
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-          />
-          <button className="bg-blue-600 text-white p-2 rounded mt-2" disabled={loading}>
-            {loading ? "登入中..." : "登入"}
-          </button>
-          {error && <div className="text-red-500 text-sm mt-2">{error}</div>}
-        </form>
+        <Card className="w-80">
+          <CardHeader>
+            <CardTitle>訂閱管理登入</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleLogin} className="flex flex-col gap-4">
+              <Input
+                placeholder="帳號"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                autoFocus
+              />
+              <Input
+                placeholder="密碼"
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+              />
+              <Button type="submit" disabled={loading} className="mt-2 w-full">
+                <LogIn className="w-4 h-4 mr-2" />{loading ? "登入中..." : "登入"}
+              </Button>
+              {error && <Alert variant="destructive" className="mt-2">{error}</Alert>}
+            </form>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="max-w-xl mx-auto p-4">
-      <h1 className="text-2xl mb-4">訂閱管理</h1>
-      <button onClick={handleLogout} className="text-blue-500 mb-4">登出</button>
-      <form onSubmit={handleAdd} className="flex flex-col gap-2 mb-6">
-        <input className="border p-2 rounded" placeholder="名稱" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
-        <input className="border p-2 rounded" placeholder="金額" type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} required />
-        <input className="border p-2 rounded" placeholder="幣別 (如 TWD, USD)" value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))} required />
-        <input className="border p-2 rounded" placeholder="帳單日" type="date" value={form.billingDate} onChange={e => setForm(f => ({ ...f, billingDate: e.target.value }))} required />
-        <input className="border p-2 rounded" placeholder="週期 (如 monthly, yearly)" value={form.cycle} onChange={e => setForm(f => ({ ...f, cycle: e.target.value }))} required />
-        <input className="border p-2 rounded" placeholder="備註 (可選)" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
-        <button className="bg-green-600 text-white p-2 rounded mt-2" disabled={loading}>
-          {loading ? "新增中..." : "新增訂閱"}
-        </button>
-      </form>
-      <h2 className="text-xl mb-2">訂閱列表</h2>
-      <ul className="space-y-2">
-        {subscriptions.map(sub => (
-          <li key={sub._id} className="border p-2 rounded flex justify-between items-center">
-            <div>
-              <div className="font-bold">{sub.name}</div>
-              <div>{sub.price} {sub.currency} / {sub.cycle}</div>
-              <div>帳單日: {new Date(sub.billingDate).toLocaleDateString()}</div>
-              {sub.note && <div className="text-sm text-gray-500">{sub.note}</div>}
-            </div>
-            <button className="text-red-500" onClick={() => handleDelete(sub._id)} disabled={loading}>刪除</button>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <>
+      <Navbar onLogout={handleLogout} token={token} />
+      <div className="max-w-xl mx-auto p-4">
+        <h1 className="text-2xl mb-4">訂閱管理</h1>
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle><UserPlus className="w-5 h-5 mr-2 inline" />新增訂閱</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleAdd} className="flex flex-col gap-2">
+              <Input placeholder="名稱" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
+              <Input placeholder="金額" type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} required />
+              <Input placeholder="幣別 (如 TWD, USD)" value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))} required />
+              <Input placeholder="帳單日" type="date" value={form.billingDate} onChange={e => setForm(f => ({ ...f, billingDate: e.target.value }))} required />
+              <Input placeholder="週期 (如 monthly, yearly)" value={form.cycle} onChange={e => setForm(f => ({ ...f, cycle: e.target.value }))} required />
+              <Input placeholder="備註 (可選)" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
+              <Button type="submit" className="mt-2" disabled={loading}>
+                {loading ? "新增中..." : "新增訂閱"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+        <h2 className="text-xl mb-2 flex items-center"><ListChecks className="w-5 h-5 mr-2" />訂閱列表</h2>
+        <div className="space-y-2">
+          {subscriptions.map(sub => (
+            <Card key={sub._id}>
+              <CardContent className="flex justify-between items-center py-4">
+                <div>
+                  <div className="font-bold text-lg">{sub.name}</div>
+                  <div className="text-sm">{sub.price} {sub.currency} / {sub.cycle}</div>
+                  <div className="text-xs text-gray-500">帳單日: {new Date(sub.billingDate).toLocaleDateString()}</div>
+                  {sub.note && <div className="text-xs text-gray-400">{sub.note}</div>}
+                </div>
+                <Button variant="destructive" onClick={() => handleDelete(sub._id)} disabled={loading}><Trash2 className="w-4 h-4 mr-1" />刪除</Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    </>
   );
 }
