@@ -329,12 +329,12 @@ export default function Home() {
   return (
     <>
       <Navbar onLogout={handleLogout} token={token} />
-      <div className="max-w-xl mx-auto p-4">
-        <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-col max-w-xl mx-auto p-4" style={{height: 'calc(100vh - 68px)'}}>
+        <div className="flex justify-between items-center mb-4 h-[36px]">
           <h2 className="text-xl flex items-center"><ListChecks className="w-5 h-5 mr-2" />訂閱列表</h2>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button variant="default" className="flex items-center gap-2" onClick={() => setOpen(true)}><Plus className="w-4 h-4" />新增訂閱</Button>
+              {subscriptions.length > 0 && <Button variant="default" className="flex items-center gap-2" onClick={() => setOpen(true)}><Plus className="w-4 h-4" />新增訂閱</Button>}
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -411,7 +411,7 @@ export default function Home() {
                   </Select>
                 </div>
                 <div className="w-full">
-                  <label className="block mb-1 text-sm font-medium">帳單日</label>
+                  <label className="block mb-1 text-sm font-medium">帳單起始日</label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -459,20 +459,31 @@ export default function Home() {
             </DialogContent>
           </Dialog>
         </div>
-        <div className="space-y-2">
-          {subscriptions.map(sub => (
-            <Card key={sub._id}>
-              <CardContent className="flex justify-between items-center py-4">
-                <div>
-                  <div className="font-bold text-lg">{sub.name}</div>
-                  <div className="text-sm">{sub.price} {sub.currency} / {sub.cycle}</div>
-                  <div className="text-xs text-gray-500">帳單日: {new Date(sub.billingDate).toLocaleDateString()}</div>
-                  {sub.note && <div className="text-xs text-gray-400">{sub.note}</div>}
-                </div>
-                <Button variant="destructive" onClick={() => handleDelete(sub._id)} disabled={loading}><Trash2 className="w-4 h-4 mr-1" />刪除</Button>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="space-y-2 flex-1">
+          {subscriptions.length === 0 ? (
+            <div className="flex flex-col items-center h-full justify-center text-muted-foreground">
+              <ListChecks className="w-12 h-12 mb-4 opacity-60" />
+              <div className="text-lg font-semibold mb-2">目前沒有任何訂閱</div>
+              <div className="mb-8 text-sm">點擊「新增訂閱」來開始管理你的訂閱項目！</div>
+              <Button variant="default" className="flex items-center gap-2" onClick={() => setOpen(true)}>
+                <Plus className="w-4 h-4" /> 新增訂閱
+              </Button>
+            </div>
+          ) : (
+            subscriptions.map(sub => (
+              <Card key={sub._id}>
+                <CardContent className="flex justify-between items-center py-4">
+                  <div>
+                    <div className="font-bold text-lg">{sub.name}</div>
+                    <div className="text-sm">{sub.price} {sub.currency} / {sub.cycle}</div>
+                    <div className="text-xs text-gray-500">帳單日: {new Date(sub.billingDate).toLocaleDateString()}</div>
+                    {sub.note && <div className="text-xs text-gray-400">{sub.note}</div>}
+                  </div>
+                  <Button variant="destructive" onClick={() => handleDelete(sub._id)} disabled={loading}><Trash2 className="w-4 h-4 mr-1" />刪除</Button>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
     </div>
     </>
