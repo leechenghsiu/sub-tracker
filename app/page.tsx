@@ -5,7 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Sun, Moon, Laptop, Trash2, LogIn, LogOut, UserPlus, ListChecks, Menu, X } from "lucide-react";
+import { Sun, Moon, Laptop, Trash2, LogIn, LogOut, ListChecks, Menu, X, Plus } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type Subscription = {
   _id: string;
@@ -91,7 +100,7 @@ function ThemeToggle() {
 function Navbar({ onLogout, token }: { onLogout: () => void; token: string | null }) {
   const [menuOpen, setMenuOpen] = useState(false);
   return (
-    <nav className="w-full border-b bg-white dark:bg-black mb-6" style={{height: 68}}>
+    <nav className="w-full border-b bg-white dark:bg-black" style={{height: 68}}>
       <div className="max-w-xl mx-auto flex items-center justify-between p-4">
         <span className="font-bold text-lg tracking-wide">SubTracker</span>
         {/* 桌面版 */}
@@ -159,15 +168,22 @@ export default function Home() {
   const [error, setError] = useState("");
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(false);
+  // form 狀態加 selfRatio, advanceRatio
   const [form, setForm] = useState({
     name: "",
     price: "",
-    currency: "",
+    currency: "TWD",
     billingDate: "",
-    cycle: "",
-    note: ""
+    cycle: "monthly",
+    note: "",
+    isAdvance: false,
+    advanceCount: 2,
+    advanceEach: "",
+    selfRatio: 1,
+    advanceRatio: 1
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [date, setDate] = useState<Date | undefined>(form.billingDate ? new Date(form.billingDate) : undefined);
 
   // 頁面載入時自動讀取 localStorage
   useEffect(() => {
@@ -248,7 +264,7 @@ export default function Home() {
       });
       if (res.ok) {
         fetchSubscriptions(token!);
-        setForm({ name: "", price: "", currency: "", billingDate: "", cycle: "", note: "" });
+        setForm({ name: "", price: "", currency: "TWD", billingDate: "", cycle: "monthly", note: "", isAdvance: false, advanceCount: 2, advanceEach: "", selfRatio: 1, advanceRatio: 1 });
       }
     } finally {
       setLoading(false);
@@ -313,26 +329,135 @@ export default function Home() {
     <>
       <Navbar onLogout={handleLogout} token={token} />
       <div className="max-w-xl mx-auto p-4">
-        <h1 className="text-2xl mb-4">訂閱管理</h1>
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle><UserPlus className="w-5 h-5 mr-2 inline" />新增訂閱</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleAdd} className="flex flex-col gap-2">
-              <Input placeholder="名稱" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
-              <Input placeholder="金額" type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} required />
-              <Input placeholder="幣別 (如 TWD, USD)" value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))} required />
-              <Input placeholder="帳單日" type="date" value={form.billingDate} onChange={e => setForm(f => ({ ...f, billingDate: e.target.value }))} required />
-              <Input placeholder="週期 (如 monthly, yearly)" value={form.cycle} onChange={e => setForm(f => ({ ...f, cycle: e.target.value }))} required />
-              <Input placeholder="備註 (可選)" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
-              <Button type="submit" className="mt-2" disabled={loading}>
-                {loading ? "新增中..." : "新增訂閱"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-        <h2 className="text-xl mb-2 flex items-center"><ListChecks className="w-5 h-5 mr-2" />訂閱列表</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl flex items-center"><ListChecks className="w-5 h-5 mr-2" />訂閱列表</h2>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="default" className="flex items-center gap-2"><Plus className="w-4 h-4" />新增訂閱</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>新增訂閱</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleAdd} className="flex flex-col gap-4 mt-4">
+                <div>
+                  <label className="block mb-1 text-sm font-medium">訂閱名稱</label>
+                  <Input placeholder="Cursor Pro" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
+                </div>
+                <div>
+                  <label className="block mb-1 text-sm font-medium">金額</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-base">$</span>
+                    <Input placeholder="20" type="number" inputMode="decimal" pattern="[0-9]*" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} required className="pl-6" />
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Checkbox id="advance" checked={form.isAdvance} onCheckedChange={v => setForm(f => ({ ...f, isAdvance: !!v }))} />
+                    <label htmlFor="advance" className="text-sm select-none cursor-pointer">本次為代墊</label>
+                  </div>
+                  {form.isAdvance && (
+                    <div className="flex gap-4 mt-2">
+                      <div>
+                        <label className="block mb-1 text-xs font-medium">自己出的比例</label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={form.selfRatio}
+                          onChange={e => setForm(f => ({ ...f, selfRatio: Math.max(1, Number(e.target.value) || 1) }))}
+                          className="w-20"
+                        />
+                      </div>
+                      <div>
+                        <label className="block mb-1 text-xs font-medium">代墊的比例</label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={form.advanceRatio}
+                          onChange={e => setForm(f => ({ ...f, advanceRatio: Math.max(1, Number(e.target.value) || 1) }))}
+                          className="w-20"
+                        />
+                      </div>
+                      <div>
+                        <label className="block mb-1 text-xs font-medium">每一份比例金額</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-base">$</span>
+                          <Input
+                            type="number"
+                            value={(() => {
+                              const total = Number(form.price) || 0;
+                              const ratio = Number(form.selfRatio) + Number(form.advanceRatio);
+                              return ratio > 0 ? Math.floor(total / ratio) : "";
+                            })()}
+                            disabled
+                            className="w-28 bg-muted pl-6"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="w-full">
+                  <label className="block mb-1 text-sm font-medium">幣別</label>
+                  <Select value={form.currency} onValueChange={v => setForm(f => ({ ...f, currency: v }))}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="選擇幣別" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="TWD">TWD</SelectItem>
+                      <SelectItem value="USD">USD</SelectItem>
+                      <SelectItem value="JPY">JPY</SelectItem>
+                      <SelectItem value="EUR">EUR</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-full">
+                  <label className="block mb-1 text-sm font-medium">帳單日</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !date && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {date ? format(date, "yyyy-MM-dd") : "選擇日期"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={date}
+                        onSelect={d => {
+                          setDate(d!);
+                          setForm(f => ({ ...f, billingDate: d ? d.toISOString().slice(0, 10) : "" }));
+                        }}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div>
+                  <label className="block mb-1 text-sm font-medium">週期</label>
+                  <Tabs value={form.cycle} onValueChange={v => setForm(f => ({ ...f, cycle: v }))} className="w-full">
+                    <TabsList className="w-full grid grid-cols-3">
+                      <TabsTrigger value="monthly">每月</TabsTrigger>
+                      <TabsTrigger value="halfyear">每半年</TabsTrigger>
+                      <TabsTrigger value="yearly">每年</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
+                <div>
+                  <label className="block mb-1 text-sm font-medium">備註</label>
+                  <Input placeholder="備註 (可選)" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
+                </div>
+                <Button type="submit" className="mt-2" disabled={loading}>
+                  {loading ? "新增中..." : "新增訂閱"}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
         <div className="space-y-2">
           {subscriptions.map(sub => (
             <Card key={sub._id}>
@@ -348,7 +473,7 @@ export default function Home() {
             </Card>
           ))}
         </div>
-      </div>
+    </div>
     </>
   );
 }
