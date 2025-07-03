@@ -8,7 +8,7 @@ export async function getDb() {
   if (!client) {
     client = new MongoClient(uri)
     await client.connect()
-    db = client.db() // 使用連線字串中的預設資料庫
+    db = client.db('subtracker')
   }
   return db
 } 

@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   if (!verifyAuth(req)) return NextResponse.json({ error: '未授權' }, { status: 401 })
   try {
     const db = await getDb()
-    const subscriptions = await db.collection('Subscription').find({ deletedAt: null }).sort({ createdAt: -1 }).toArray()
+    const subscriptions = await db.collection('subscription').find({ deletedAt: null }).sort({ createdAt: -1 }).toArray()
     return NextResponse.json(subscriptions || [])
   } catch {
     return NextResponse.json({ error: '資料庫錯誤' }, { status: 500 })
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       createdAt: new Date(),
       deletedAt: null
     }
-    const result = await db.collection('Subscription').insertOne(doc)
+    const result = await db.collection('subscription').insertOne(doc)
     return NextResponse.json({ ...doc, _id: result.insertedId })
   } catch {
     return NextResponse.json({ error: '資料庫錯誤' }, { status: 500 })
@@ -51,7 +51,7 @@ export async function DELETE(req: NextRequest) {
   try {
     const db = await getDb()
     const { id } = await req.json()
-    const result = await db.collection('Subscription').updateOne(
+    const result = await db.collection('subscription').updateOne(
       { _id: new ObjectId(id) },
       { $set: { deletedAt: new Date() } }
     )

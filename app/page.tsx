@@ -177,13 +177,13 @@ export default function Home() {
     cycle: "monthly",
     note: "",
     isAdvance: false,
-    advanceCount: 2,
-    advanceEach: "",
     selfRatio: 1,
     advanceRatio: 1
   });
   const [isLoading, setIsLoading] = useState(true);
   const [date, setDate] = useState<Date | undefined>(form.billingDate ? new Date(form.billingDate) : undefined);
+  // 新增: Dialog 開關 state
+  const [open, setOpen] = useState(false);
 
   // 頁面載入時自動讀取 localStorage
   useEffect(() => {
@@ -264,7 +264,8 @@ export default function Home() {
       });
       if (res.ok) {
         fetchSubscriptions(token!);
-        setForm({ name: "", price: "", currency: "TWD", billingDate: "", cycle: "monthly", note: "", isAdvance: false, advanceCount: 2, advanceEach: "", selfRatio: 1, advanceRatio: 1 });
+        setForm({ name: "", price: "", currency: "TWD", billingDate: "", cycle: "monthly", note: "", isAdvance: false, selfRatio: 1, advanceRatio: 1 });
+        setOpen(false); // 新增成功後關閉 Dialog
       }
     } finally {
       setLoading(false);
@@ -331,9 +332,9 @@ export default function Home() {
       <div className="max-w-xl mx-auto p-4">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl flex items-center"><ListChecks className="w-5 h-5 mr-2" />訂閱列表</h2>
-          <Dialog>
+          <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button variant="default" className="flex items-center gap-2"><Plus className="w-4 h-4" />新增訂閱</Button>
+              <Button variant="default" className="flex items-center gap-2" onClick={() => setOpen(true)}><Plus className="w-4 h-4" />新增訂閱</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -352,7 +353,7 @@ export default function Home() {
                   </div>
                   <div className="flex items-center gap-2 mt-2">
                     <Checkbox id="advance" checked={form.isAdvance} onCheckedChange={v => setForm(f => ({ ...f, isAdvance: !!v }))} />
-                    <label htmlFor="advance" className="text-sm select-none cursor-pointer">本次為代墊</label>
+                    <label htmlFor="advance" className="text-sm select-none cursor-pointer">此訂閱包含代墊</label>
                   </div>
                   {form.isAdvance && (
                     <div className="flex gap-4 mt-2">
