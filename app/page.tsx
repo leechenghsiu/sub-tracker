@@ -287,7 +287,7 @@ export default function Home() {
         },
         body: JSON.stringify({
           ...form,
-          price: parseFloat(form.price),
+          price: form.price === "" ? 0 : parseFloat(form.price),
           billingDate: new Date(form.billingDate)
         })
       });
@@ -360,7 +360,7 @@ export default function Home() {
                   <label className="block mb-1 text-sm font-medium">金額</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-base">$</span>
-                    <Input placeholder="0" type="number" inputMode="decimal" pattern="[0-9]*" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} required className="pl-6" />
+                    <Input placeholder="0" type="number" inputMode="decimal" pattern="[0-9]*" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value.replace(/^0+(?!$)/, "") }))} required className="pl-6" />
                   </div>
                   <div className="flex items-center gap-2 mt-2">
                     <Checkbox id="advance" checked={form.isAdvance} onCheckedChange={v => setForm(f => ({ ...f, isAdvance: !!v }))} />
