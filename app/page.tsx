@@ -82,7 +82,7 @@ function ThemeToggle() {
           <Moon className="mr-2 w-4 h-4" /> 暗色
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setAndApplyTheme('system')}>
-          <Laptop className="mr-2 w-4 h-4" /> 跟隨系統
+          <Laptop className="mr-2 w-4 h-4" /> 跟隨裝置
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -267,7 +267,7 @@ export default function Home() {
   }
 
   if (isLoading) {
-    return <div />;
+    return <div className="flex justify-center items-center min-h-screen text-muted-foreground">載入中...</div>;
   }
 
   if (!token) {
@@ -436,10 +436,10 @@ export default function Home() {
           </Dialog>
       {/* 主內容區 */}
       <div className="max-w-xl mx-auto p-4 flex-1 flex flex-col">
-          {subscriptions.length === 0 ? (
+        {subscriptions.length === 0 ? (
           <EmptyState onAdd={() => setOpen(true)} />
         ) : (
-          <OverviewTabs subscriptions={subscriptions} tabMode={tabMode} setTabMode={setTabMode} />
+          <OverviewTabs subscriptions={subscriptions} tabMode={tabMode} setTabMode={setTabMode} token={token} onRefresh={() => fetchSubscriptions(token!)} />
         )}
       </div>
     </>
