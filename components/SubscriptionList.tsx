@@ -10,6 +10,7 @@ import { Calendar as CalendarIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 interface SubscriptionListProps {
   subscriptions: Subscription[];
@@ -25,6 +26,8 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
   const [form, setForm] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [sortBy, setSortBy] = useState<'amount' | 'date'>("amount");
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>("desc");
 
   function handleClick(sub: Subscription) {
     setSelected(sub);
@@ -51,6 +54,65 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
     }
     return amount;
   }
+
+  // 計算下次帳單日
+  function getNextBillingDate(sub: Subscription) {
+    const now = new Date();
+    let billingDate = new Date(sub.billingDate);
+    while (billingDate < now) {
+      billingDate = new Date(billingDate); // 複製
+      if (sub.cycle === 'monthly') {
+        billingDate.setMonth(billingDate.getMonth() + 1);
+      } else if (sub.cycle === 'halfyear') {
+        billingDate.setMonth(billingDate.getMonth() + 6);
+      } else if (sub.cycle === 'yearly') {
+        billingDate.setFullYear(billingDate.getFullYear() + 1);
+      }
+    }
+    return billingDate;
+  }
+
+  // 排序狀態循環
+  const sortStates: Array<{ by: 'amount' | 'date', order: 'asc' | 'desc' }> = [
+    { by: 'amount', order: 'asc' },
+    { by: 'amount', order: 'desc' },
+    { by: 'date', order: 'asc' },
+    { by: 'date', order: 'desc' },
+  ];
+  const currentSortIndex = sortStates.findIndex(s => s.by === sortBy && s.order === sortOrder);
+  function handleSortClick() {
+    const next = sortStates[(currentSortIndex + 1) % sortStates.length];
+    setSortBy(next.by);
+    setSortOrder(next.order);
+  }
+  function getSortLabel() {
+    if (sortBy === 'amount') return '依金額排序';
+    return '依日期排序';
+  }
+  function getSortIcon() {
+    return sortOrder === 'asc' ? <ChevronUp className="w-4 h-4 inline ml-1" /> : <ChevronDown className="w-4 h-4 inline ml-1" />;
+  }
+
+  // 排序 subscriptions
+  const sortedSubscriptions = [...subscriptions].sort((a, b) => {
+    if (sortBy === 'amount') {
+      const totalA = Number(a.price) || 0;
+      const selfA = Number(a.selfRatio) || 1;
+      const advA = Number(a.advanceRatio) || 0;
+      const myAmountA = totalA * (selfA / (selfA + (a.isAdvance ? advA : 0)));
+      const displayAmountA = convert(myAmountA, a.cycle);
+      const totalB = Number(b.price) || 0;
+      const selfB = Number(b.selfRatio) || 1;
+      const advB = Number(b.advanceRatio) || 0;
+      const myAmountB = totalB * (selfB / (selfB + (b.isAdvance ? advB : 0)));
+      const displayAmountB = convert(myAmountB, b.cycle);
+      return sortOrder === 'asc' ? displayAmountA - displayAmountB : displayAmountB - displayAmountA;
+    } else {
+      const dateA = getNextBillingDate(a).getTime();
+      const dateB = getNextBillingDate(b).getTime();
+      return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+    }
+  });
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -102,8 +164,19 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
 
   return (
     <>
+      <div className="flex items-center justify-between mb-2">
+        <div className="font-bold text-lg">訂閱列表</div>
+        <button
+          type="button"
+          className="text-xs px-2 py-1 flex items-center hover:underline focus:outline-none bg-transparent"
+          onClick={handleSortClick}
+        >
+          {getSortLabel()}
+          {getSortIcon()}
+        </button>
+      </div>
       <div className="rounded-lg border divide-y bg-card">
-        {subscriptions.map(sub => {
+        {sortedSubscriptions.map(sub => {
           const total = Number(sub.price) || 0;
           const self = Number(sub.selfRatio) || 1;
           const adv = Number(sub.advanceRatio) || 0;

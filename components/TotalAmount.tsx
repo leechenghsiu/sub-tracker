@@ -52,8 +52,8 @@ export default function TotalAmount({ subscriptions, mode }: { subscriptions: Su
     sum + toTWD(convert(getSelfAmount(sub), sub.cycle), sub.currency), 0);
   const unit = getUnit(mode);
   return (
-    <Card className="w-full py-4">
-      <CardHeader className="pb-2 flex flex-row items-center justify-between relative">
+    <Card className="w-full py-4 gap-4">
+      <CardHeader className="flex flex-row items-center justify-between relative">
         <CardTitle className="text-lg flex items-center gap-2">
           <Wallet className="w-5 h-5" />
           總花費
