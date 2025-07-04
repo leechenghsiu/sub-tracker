@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { formatNumberWithCommas } from "@/lib/utils";
 
 interface SubscriptionListProps {
   subscriptions: Subscription[];
@@ -196,7 +197,7 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
                 </div>
               </div>
               <div className="text-lg font-bold whitespace-nowrap">
-                {Math.floor(displayAmount)} {sub.currency}
+                ${formatNumberWithCommas(Math.floor(displayAmount))} {sub.currency}
               </div>
             </button>
           );

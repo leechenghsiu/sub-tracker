@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { Wallet } from "lucide-react";
 // shadcn badge
 import { Badge } from "./ui/badge";
+import { formatNumberWithCommas } from "@/lib/utils";
 
 // 匯率常數（可自行調整）
 const EXCHANGE_RATE: Record<string, number> = {
@@ -63,7 +64,7 @@ export default function TotalAmount({ subscriptions, mode }: { subscriptions: Su
       <CardContent>
         <div className="flex items-baseline gap-2">
           <span className="text-base font-medium">約</span>
-          <span className="text-3xl font-bold">{Math.round(total)}</span>
+          <span className="text-3xl font-bold">${formatNumberWithCommas(Math.round(total))}</span>
           <span className="text-base font-medium">TWD / {unit}</span>
         </div>
       </CardContent>

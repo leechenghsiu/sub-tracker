@@ -94,44 +94,23 @@ function ThemeToggle() {
 
 function Navbar({ onLogout, token }: { onLogout: () => void; token: string | null }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
-  const [mounted, setMounted] = useState(false);
-
+  const [logoSrc, setLogoSrc] = useState<string | null>(null);
   useEffect(() => {
-    setMounted(true);
-    const saved = localStorage.getItem('theme');
-    if (saved === 'light' || saved === 'dark') {
-      setTheme(saved);
-    } else {
-      setTheme('system');
-    }
+    // 僅在 client 端執行
+    const isDark = document.documentElement.classList.contains('dark');
+    setLogoSrc(isDark ? '/subtracker-dark.png' : '/subtracker-light.png');
   }, []);
-  useEffect(() => {
-    if (theme === 'system') {
-      const mq = window.matchMedia('(prefers-color-scheme: dark)');
-      const handler = (e: MediaQueryListEvent) => {
-        setTheme(e.matches ? 'dark' : 'light');
-      };
-      setTheme(mq.matches ? 'dark' : 'light');
-      mq.addEventListener('change', handler);
-      return () => mq.removeEventListener('change', handler);
-    }
-  }, [theme]);
-
-  let logoSrc = '/subtracker-light.png';
-  if (theme === 'dark') logoSrc = '/subtracker-dark.png';
-
   return (
     <nav className="w-full border-b bg-white dark:bg-black" style={{height: 68}}>
       <div className="max-w-xl mx-auto flex items-center justify-between p-4">
         <div className="flex items-center gap-3">
-          {mounted ? (
+          {logoSrc ? (
             <Image
               src={logoSrc}
               alt="SubTracker"
               className={
                 `h-8 w-auto rounded-md ` +
-                (theme === 'dark'
+                (logoSrc.includes('dark')
                   ? 'border border-gray-700'
                   : 'border border-gray-300')
               }
@@ -331,7 +310,7 @@ export default function Home() {
       <div className="flex flex-col items-center justify-center min-h-screen">
         <Card className="w-80">
           <CardHeader>
-            <CardTitle>訂閱管理登入</CardTitle>
+            <CardTitle>SubTracker</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="flex flex-col gap-4">
