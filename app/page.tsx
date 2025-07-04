@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Sun, Moon, Laptop, LogIn, LogOut, ListChecks, Menu, X, Plus } from "lucide-react";
+import { Sun, Moon, Laptop, LogIn, LogOut, ListChecks, Menu, Plus } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -93,7 +93,6 @@ function ThemeToggle() {
 }
 
 function Navbar({ onLogout, token }: { onLogout: () => void; token: string | null }) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [logoSrc, setLogoSrc] = useState<string | null>(null);
   useEffect(() => {
     // 僅在 client 端執行
@@ -135,52 +134,22 @@ function Navbar({ onLogout, token }: { onLogout: () => void; token: string | nul
           <ThemeToggle />
           {token && <Button variant="outline" onClick={onLogout}><LogOut className="w-4 h-4 mr-2" />登出</Button>}
         </div>
-        {/* 手機版漢堡選單+主題 */}
+        {/* 手機版主題選擇+登出 DropdownMenu */}
         <div className="sm:hidden flex items-center gap-2">
           <ThemeToggle />
-          <button
-            className="flex items-center justify-center w-8 h-8 relative"
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-label="menu"
-          >
-            <span
-              className={`absolute transition-all duration-300 ${
-                menuOpen
-                  ? 'opacity-0 scale-75 rotate-45'
-                  : 'opacity-100 scale-100 rotate-0'
-              }`}
-            >
-              <Menu className="w-6 h-6" />
-            </span>
-            <span
-              className={`absolute transition-all duration-300 ${
-                menuOpen
-                  ? 'opacity-100 scale-100 rotate-0'
-                  : 'opacity-0 scale-75 -rotate-45'
-              }`}
-            >
-              <X className="w-6 h-6" />
-            </span>
-          </button>
           {token && (
-            <>
-              <div
-                className={`fixed left-0 right-0 top-[68px] z-50 bg-white dark:bg-black flex flex-col items-center shadow-lg overflow-hidden transition-all duration-500 h-full
-                  ${menuOpen ? 'max-h-[calc(100vh-68px)] opacity-100 py-12' : 'max-h-0 opacity-0 py-0'}`}
-              >
-                <Button
-                  variant="ghost"
-                  className="w-40 mb-4 text-lg"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onLogout();
-                  }}
-                >
-                  <LogOut className="w-5 h-5 mr-2" />登出
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="更多選單">
+                  <Menu className="w-6 h-6" />
                 </Button>
-                {/* 之後可在這裡加更多選單項目 */}
-              </div>
-            </>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onLogout}>
+                  <LogOut className="w-5 h-5 mr-2" />登出
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </div>
