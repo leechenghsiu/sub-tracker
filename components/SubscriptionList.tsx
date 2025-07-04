@@ -165,7 +165,7 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
   return (
     <>
       <div className="flex items-center justify-between mb-2">
-        <div className="font-bold text-lg">訂閱列表</div>
+        <div className="font-bold text-lg"></div>
         <button
           type="button"
           className="text-xs px-2 py-1 flex items-center hover:underline focus:outline-none bg-transparent"

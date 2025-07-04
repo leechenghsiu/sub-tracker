@@ -18,6 +18,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Subscription } from "../components/types";
 import EmptyState from "../components/EmptyState";
 import OverviewTabs from "../components/OverviewTabs";
+import Image from "next/image";
+import { Montserrat } from "next/font/google";
+const montserrat = Montserrat({ subsets: ["latin"], weight: "700" });
 
 // 移除 Subscription type，改由 components/types 匯入
 function ThemeToggle() {
@@ -91,10 +94,63 @@ function ThemeToggle() {
 
 function Navbar({ onLogout, token }: { onLogout: () => void; token: string | null }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light' || saved === 'dark') {
+      setTheme(saved);
+    } else {
+      setTheme('system');
+    }
+  }, []);
+  useEffect(() => {
+    if (theme === 'system') {
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      const handler = (e: MediaQueryListEvent) => {
+        setTheme(e.matches ? 'dark' : 'light');
+      };
+      setTheme(mq.matches ? 'dark' : 'light');
+      mq.addEventListener('change', handler);
+      return () => mq.removeEventListener('change', handler);
+    }
+  }, [theme]);
+
+  let logoSrc = '/subtracker-light.png';
+  if (theme === 'dark') logoSrc = '/subtracker-dark.png';
+
   return (
     <nav className="w-full border-b bg-white dark:bg-black" style={{height: 68}}>
       <div className="max-w-xl mx-auto flex items-center justify-between p-4">
-        <span className="font-bold text-lg tracking-wide">SubTracker</span>
+        <div className="flex items-center gap-3">
+          {mounted ? (
+            <Image
+              src={logoSrc}
+              alt="SubTracker"
+              className={
+                `h-8 w-auto rounded-md ` +
+                (theme === 'dark'
+                  ? 'border border-gray-700'
+                  : 'border border-gray-300')
+              }
+              width={32}
+              height={32}
+              priority
+            />
+          ) : (
+            <div style={{ width: 32, height: 32 }} />
+          )}
+          <span
+            className={
+              `${montserrat.className} font-bold select-none`
+            }
+            style={{ fontSize: 20, lineHeight: '32px', height: 32, display: 'flex', alignItems: 'center' }}
+          >
+            SubTracker
+          </span>
+        </div>
         {/* 桌面版 */}
         <div className="hidden sm:flex items-center gap-2">
           <ThemeToggle />
@@ -319,13 +375,13 @@ export default function Home() {
             <form onSubmit={handleAdd} className="flex flex-col gap-4 mt-4">
                 <div>
                   <label className="block mb-1 text-sm font-medium">訂閱名稱</label>
-                  <Input placeholder="Cursor Pro" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
+                  <Input placeholder="請輸入訂閱名稱" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
                 </div>
                 <div>
                   <label className="block mb-1 text-sm font-medium">金額</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-base">$</span>
-                    <Input placeholder="20" type="number" inputMode="decimal" pattern="[0-9]*" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} required className="pl-6" />
+                    <Input placeholder="0" type="number" inputMode="decimal" pattern="[0-9]*" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} required className="pl-6" />
                   </div>
                   <div className="flex items-center gap-2 mt-2">
                     <Checkbox id="advance" checked={form.isAdvance} onCheckedChange={v => setForm(f => ({ ...f, isAdvance: !!v }))} />
@@ -426,7 +482,7 @@ export default function Home() {
                 </div>
                 <div>
                   <label className="block mb-1 text-sm font-medium">備註</label>
-                  <Input placeholder="備註 (可選)" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
+                  <Input placeholder="請輸入備註 (可選)" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
                 </div>
                 <Button type="submit" className="mt-2" disabled={loading}>
                   {loading ? "新增中..." : "新增訂閱"}
