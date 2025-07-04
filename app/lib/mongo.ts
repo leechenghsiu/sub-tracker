@@ -1,6 +1,6 @@
 import { MongoClient, Db } from 'mongodb'
 
-const uri = process.env.DATABASE_URL as string
+const uri = process.env.MONGO_CONNECTION_STRING as string
 let client: MongoClient
 let db: Db
 
