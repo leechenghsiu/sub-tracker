@@ -1,17 +1,12 @@
 import React, { useState } from "react";
 import { Subscription } from "./types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
-import { Input } from "./ui/input";
-import { Checkbox } from "./ui/checkbox";
 import { Button } from "./ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
-import { Calendar as CalendarIcon } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { formatNumberWithCommas } from "@/lib/utils";
+import { Input } from "./ui/input";
+import { Checkbox } from "./ui/checkbox";
 
 interface SubscriptionListProps {
   subscriptions: Subscription[];
@@ -21,21 +16,18 @@ interface SubscriptionListProps {
 }
 
 export default function SubscriptionList({ subscriptions, mode, token, onRefresh }: SubscriptionListProps) {
-  const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<Subscription | null>(null);
-  const [editMode, setEditMode] = useState(false);
-  const [form, setForm] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [sortBy, setSortBy] = useState<'amount' | 'date'>("amount");
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>("desc");
-
-  function handleClick(sub: Subscription) {
-    setSelected(sub);
-    setForm(sub);
-    setEditMode(false);
-    setOpen(true);
-  }
+  // 新增：展開狀態
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Dialog 狀態
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<Subscription | null>(null);
+  // 編輯狀態
+  const [editMode, setEditMode] = useState(false);
+  const [form, setForm] = useState<Subscription | null>(null);
 
   function convert(amount: number, cycle: string) {
     if (mode === 'monthly') {
@@ -115,6 +107,7 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
     }
   });
 
+  // 儲存編輯
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!selected || !form) return;
@@ -142,6 +135,7 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
     }
   }
 
+  // 點擊刪除
   async function handleDelete() {
     if (!selected) return;
     setLoading(true);
@@ -181,28 +175,74 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
           const total = Number(sub.price) || 0;
           const self = Number(sub.selfRatio) || 1;
           const adv = Number(sub.advanceRatio) || 0;
-          const myAmount = total * (self / (self + (sub.isAdvance ? adv : 0)));
-          const displayAmount = convert(myAmount, sub.cycle);
+          const displayAmount = convert(total, sub.cycle);
+          // 代墊金額
+          const advanceAmount = sub.isAdvance ? convert(total * (adv / (self + adv)), sub.cycle) : 0;
+          const isExpanded = expandedId === sub._id;
           return (
-            <button
-              key={sub._id}
-              className="flex items-center px-4 py-3 gap-3 w-full text-left hover:bg-muted transition"
-              onClick={() => handleClick(sub)}
-              type="button"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-base truncate">{sub.name}</div>
-                <div className="text-xs text-gray-500 mt-0.5">
-                  每{sub.cycle === 'monthly' ? '月' : sub.cycle === 'halfyear' ? '半年' : '年'}{new Date(sub.billingDate).getDate()}號
+            <div key={sub._id} className="transition-all">
+              {/* 卡片頭部 */}
+              <div className="flex items-center px-4 py-3 gap-3 w-full text-left">
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-base truncate flex items-center gap-1">
+                    {sub.name}
+                    {sub.isAdvance && (
+                      <span className="ml-1 text-xs text-blue-500 border border-blue-200 rounded px-1">含代墊</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    每{sub.cycle === 'monthly' ? '月' : sub.cycle === 'halfyear' ? '半年' : '年'}{new Date(sub.billingDate).getDate()}號
+                  </div>
                 </div>
+                <div className="text-lg font-bold whitespace-nowrap">
+                  ${formatNumberWithCommas(Math.floor(displayAmount))} {sub.currency}
+                </div>
+                <button
+                  type="button"
+                  className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+                  onClick={() => setExpandedId(isExpanded ? null : sub._id)}
+                  aria-label={isExpanded ? '收合' : '展開'}
+                >
+                  {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
               </div>
-              <div className="text-lg font-bold whitespace-nowrap">
-                ${formatNumberWithCommas(Math.floor(displayAmount))} {sub.currency}
-              </div>
-            </button>
+              {/* 展開內容 */}
+              {isExpanded && (
+                <div className="bg-muted px-6 py-3 text-sm text-gray-700 dark:text-gray-200 border-t">
+                  <div className="mb-1">自己負擔：<span className="font-bold">${formatNumberWithCommas(Math.floor(convert(total * (self / (self + (sub.isAdvance ? adv : 0))), sub.cycle)))} {sub.currency}</span></div>
+                  <div className="mb-1">週期：{sub.cycle === 'monthly' ? '每月' : sub.cycle === 'halfyear' ? '每半年' : '每年'}</div>
+                  <div className="mb-1">下次帳單日：{format(getNextBillingDate(sub), 'yyyy-MM-dd')}</div>
+                  {sub.isAdvance && (
+                    <>
+                      <div className="mb-1">代墊金額：<span className="font-bold">${formatNumberWithCommas(Math.floor(advanceAmount))} {sub.currency}</span></div>
+                      <div className="mb-1 text-xs text-gray-500">（總金額 × 代墊比例 / 總比例，已依週期換算）</div>
+                      <div className="mb-1">分攤比例：自己 {sub.selfRatio}，代墊 {sub.advanceRatio}</div>
+                    </>
+                  )}
+                  {sub.note && <div className="mt-2 text-xs text-gray-500">備註：{sub.note}</div>}
+                  <div className="mt-4 flex justify-end">
+                    <Button size="sm" variant="outline" onClick={() => { setSelected(sub); setOpen(true); }}>查看詳情</Button>
+                  </div>
+                </div>
+              )}
+            </div>
           );
         })}
       </div>
+      {/* 以下 Dialog 相關區塊全部移除 */}
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>確認刪除</DialogTitle>
+          </DialogHeader>
+          <div className="mb-4">確定要刪除這筆訂閱嗎？此操作無法復原。</div>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setConfirmDelete(false)} disabled={loading}>取消</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={loading}>{loading ? "刪除中..." : "確定刪除"}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Dialog 詳細內容（原本的 Dialog 內容） */}
       <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditMode(false); }}>
         <DialogContent>
           <DialogHeader>
@@ -213,20 +253,13 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
               <form className="flex flex-col gap-4 mt-4" onSubmit={handleSave}>
                 <div>
                   <label className="block mb-1 text-sm font-medium">訂閱名稱</label>
-                  <Input value={editMode && form ? form.name : selected.name} onChange={e => form && setForm({ ...form, name: e.target.value })} disabled={!editMode} required />
+                  <Input value={editMode && form ? form.name : selected.name} onChange={e => editMode && form && setForm({ ...form, name: e.target.value })} disabled={!editMode} required />
                 </div>
                 <div>
                   <label className="block mb-1 text-sm font-medium">金額</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-base">$</span>
-                    <Input
-                      type="number"
-                      value={editMode && form ? (form.price ?? "") : (selected.price ?? "")}
-                      onChange={e => form && setForm({ ...form, price: e.target.value === "" ? 0 : Number(e.target.value) })}
-                      disabled={!editMode}
-                      required
-                      className="pl-6"
-                    />
+                    <Input type="number" value={editMode && form ? (form.price ?? "") : (selected.price ?? "")} onChange={e => editMode && form && setForm({ ...form, price: e.target.value === "" ? 0 : Number(e.target.value) })} disabled={!editMode} required className="pl-6" />
                   </div>
                   <div className="flex items-center gap-2 mt-2">
                     <Checkbox id="advance" checked={editMode && form ? form.isAdvance : selected.isAdvance} onCheckedChange={v => editMode && form && setForm({ ...form, isAdvance: !!v })} disabled={!editMode} />
@@ -236,23 +269,11 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
                     <div className="flex gap-4 mt-2">
                       <div>
                         <label className="block mb-1 text-xs font-medium">自己出的比例</label>
-                        <Input
-                          type="number"
-                          value={editMode && form ? (form.selfRatio ?? "") : (selected.selfRatio ?? "")}
-                          onChange={e => form && setForm({ ...form, selfRatio: e.target.value === "" ? 1 : Math.max(1, Number(e.target.value) || 1) })}
-                          disabled={!editMode}
-                          className="w-20"
-                        />
+                        <Input type="number" value={editMode && form ? (form.selfRatio ?? "") : (selected.selfRatio ?? "")} onChange={e => editMode && form && setForm({ ...form, selfRatio: e.target.value === "" ? 1 : Math.max(1, Number(e.target.value) || 1) })} disabled={!editMode} className="w-20" />
                       </div>
                       <div>
                         <label className="block mb-1 text-xs font-medium">代墊的比例</label>
-                        <Input
-                          type="number"
-                          value={editMode && form ? (form.advanceRatio ?? "") : (selected.advanceRatio ?? "")}
-                          onChange={e => form && setForm({ ...form, advanceRatio: e.target.value === "" ? 1 : Math.max(1, Number(e.target.value) || 1) })}
-                          disabled={!editMode}
-                          className="w-20"
-                        />
+                        <Input type="number" value={editMode && form ? (form.advanceRatio ?? "") : (selected.advanceRatio ?? "")} onChange={e => editMode && form && setForm({ ...form, advanceRatio: e.target.value === "" ? 1 : Math.max(1, Number(e.target.value) || 1) })} disabled={!editMode} className="w-20" />
                       </div>
                       <div>
                         <label className="block mb-1 text-xs font-medium">每一份比例金額</label>
@@ -275,50 +296,15 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
                 </div>
                 <div className="w-full">
                   <label className="block mb-1 text-sm font-medium">幣別</label>
-                  <Select value={editMode && form ? form.currency : selected.currency} onValueChange={v => editMode && form && setForm({ ...form, currency: v })} disabled={!editMode}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="選擇幣別" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="TWD">TWD</SelectItem>
-                      <SelectItem value="USD">USD</SelectItem>
-                      <SelectItem value="JPY">JPY</SelectItem>
-                      <SelectItem value="EUR">EUR</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input value={editMode && form ? form.currency : selected.currency} onChange={v => editMode && form && setForm({ ...form, currency: v.target.value })} disabled={!editMode} className="w-full" />
                 </div>
                 <div className="w-full">
                   <label className="block mb-1 text-sm font-medium">帳單起始日</label>
-                  <Popover open={editMode ? undefined : false}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant={"outline"}
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !(editMode && form ? form.billingDate : selected.billingDate) && "text-muted-foreground"
-                        )}
-                        disabled={!editMode}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {(editMode && form ? form.billingDate : selected.billingDate) ? format(new Date(editMode && form ? form.billingDate : selected.billingDate), "yyyy-MM-dd") : "選擇日期"}
-                      </Button>
-                    </PopoverTrigger>
-                    {editMode && form && (
-                      <PopoverContent className="w-auto p-0">
-                        <input type="date" value={form && form.billingDate ? form.billingDate : ""} onChange={e => form && setForm({ ...form, billingDate: e.target.value })} className="w-full border rounded px-2 py-1" />
-                      </PopoverContent>
-                    )}
-                  </Popover>
+                  <Input value={editMode && form ? form.billingDate : selected.billingDate} onChange={e => editMode && form && setForm({ ...form, billingDate: e.target.value })} disabled={!editMode} className="w-full" />
                 </div>
                 <div>
                   <label className="block mb-1 text-sm font-medium">週期</label>
-                  <Tabs value={editMode && form ? form.cycle : selected.cycle} onValueChange={v => editMode && form && setForm({ ...form, cycle: v })} className="w-full" >
-                    <TabsList className="w-full grid grid-cols-3">
-                      <TabsTrigger value="monthly" disabled={!editMode}>每月</TabsTrigger>
-                      <TabsTrigger value="halfyear" disabled={!editMode}>每半年</TabsTrigger>
-                      <TabsTrigger value="yearly" disabled={!editMode}>每年</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
+                  <Input value={editMode && form ? form.cycle : selected.cycle} onChange={e => editMode && form && setForm({ ...form, cycle: e.target.value })} disabled={!editMode} className="w-full" />
                 </div>
                 <div>
                   <label className="block mb-1 text-sm font-medium">備註</label>
@@ -332,7 +318,7 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
                     </>
                   ) : (
                     <>
-                      <Button type="button" variant="outline" onClick={e => { e.preventDefault(); setEditMode(true); }}>編輯</Button>
+                      <Button type="button" variant="outline" onClick={e => { e.preventDefault(); setEditMode(true); setForm(selected); }}>編輯</Button>
                       <Button type="button" variant="destructive" onClick={() => setConfirmDelete(true)}>刪除</Button>
                     </>
                   )}
@@ -340,18 +326,6 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
               </form>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
-      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>確認刪除</DialogTitle>
-          </DialogHeader>
-          <div className="mb-4">確定要刪除這筆訂閱嗎？此操作無法復原。</div>
-          <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => setConfirmDelete(false)} disabled={loading}>取消</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={loading}>{loading ? "刪除中..." : "確定刪除"}</Button>
-          </div>
         </DialogContent>
       </Dialog>
     </>

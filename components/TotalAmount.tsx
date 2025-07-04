@@ -22,11 +22,12 @@ function getUnit(mode: 'monthly' | 'halfyear' | 'yearly') {
 }
 
 export default function TotalAmount({ subscriptions, mode }: { subscriptions: Subscription[]; mode: 'monthly' | 'halfyear' | 'yearly' }) {
-  function getSelfAmount(sub: Subscription) {
+  function getAdvanceAmount(sub: Subscription) {
+    if (!sub.isAdvance) return 0;
     const total = Number(sub.price) || 0;
     const self = Number(sub.selfRatio) || 1;
     const adv = Number(sub.advanceRatio) || 0;
-    return total * (self / (self + (sub.isAdvance ? adv : 0)));
+    return total * (adv / (self + adv));
   }
   function convert(amount: number, cycle: string) {
     if (mode === 'monthly') {
@@ -50,7 +51,9 @@ export default function TotalAmount({ subscriptions, mode }: { subscriptions: Su
     return amount * (EXCHANGE_RATE[currency] || 1);
   }
   const total = subscriptions.reduce((sum, sub) =>
-    sum + toTWD(convert(getSelfAmount(sub), sub.cycle), sub.currency), 0);
+    sum + toTWD(convert(Number(sub.price) || 0, sub.cycle), sub.currency), 0);
+  const totalAdvance = subscriptions.reduce((sum, sub) =>
+    sum + toTWD(convert(getAdvanceAmount(sub), sub.cycle), sub.currency), 0);
   const unit = getUnit(mode);
   return (
     <Card className="w-full py-4 gap-4">
@@ -67,6 +70,13 @@ export default function TotalAmount({ subscriptions, mode }: { subscriptions: Su
           <span className="text-3xl font-bold">${formatNumberWithCommas(Math.round(total))}</span>
           <span className="text-base font-medium">TWD / {unit}</span>
         </div>
+        {totalAdvance > 0 && (
+          <div className="flex items-baseline gap-2 mt-4">
+            <span className="text-blue-500 border border-blue-200 rounded px-1 text-xs font-semibold">
+              含代墊：${formatNumberWithCommas(Math.round(totalAdvance))} TWD / {unit}
+            </span>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

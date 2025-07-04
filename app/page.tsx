@@ -101,7 +101,7 @@ function Navbar({ onLogout, token }: { onLogout: () => void; token: string | nul
     setLogoSrc(isDark ? '/subtracker-dark.png' : '/subtracker-light.png');
   }, []);
   return (
-    <nav className="w-full border-b bg-white dark:bg-black" style={{height: 68}}>
+    <nav className="fixed top-0 left-0 right-0 z-50 w-full border-b bg-white dark:bg-black" style={{height: 68}}>
       <div className="max-w-xl mx-auto flex items-center justify-between p-4">
         <div className="flex items-center gap-3">
           {logoSrc ? (
@@ -204,8 +204,8 @@ export default function Home() {
     cycle: "monthly",
     note: "",
     isAdvance: false,
-    selfRatio: 1,
-    advanceRatio: 1
+    selfRatio: "1",
+    advanceRatio: "1"
   });
   const [isLoading, setIsLoading] = useState(true);
   const [date, setDate] = useState<Date | undefined>(form.billingDate ? new Date(form.billingDate) : undefined);
@@ -288,12 +288,14 @@ export default function Home() {
         body: JSON.stringify({
           ...form,
           price: form.price === "" ? 0 : parseFloat(form.price),
+          selfRatio: form.selfRatio === "" ? 1 : Number(form.selfRatio),
+          advanceRatio: form.advanceRatio === "" ? 1 : Number(form.advanceRatio),
           billingDate: new Date(form.billingDate)
         })
       });
       if (res.ok) {
         fetchSubscriptions(token!);
-        setForm({ name: "", price: "", currency: "TWD", billingDate: "", cycle: "monthly", note: "", isAdvance: false, selfRatio: 1, advanceRatio: 1 });
+        setForm({ name: "", price: "", currency: "TWD", billingDate: "", cycle: "monthly", note: "", isAdvance: false, selfRatio: "1", advanceRatio: "1" });
         setOpen(false); // 新增成功後關閉 Dialog
       }
     } finally {
@@ -341,7 +343,7 @@ export default function Home() {
     <>
       <Navbar onLogout={handleLogout} token={token} />
       {/* 置頂區塊 */}
-      <div className="flex justify-between items-center max-w-xl mx-auto p-4">
+      <div className="flex justify-between items-center max-w-xl mx-auto p-4 mt-[68px]">
           <h2 className="text-xl flex items-center"><ListChecks className="w-5 h-5 mr-2" />訂閱列表</h2>
           <Button variant="default" className="flex items-center gap-2" onClick={() => setOpen(true)}><Plus className="w-4 h-4" />新增訂閱</Button>
         </div>
@@ -374,7 +376,7 @@ export default function Home() {
                           type="number"
                           min={1}
                           value={form.selfRatio}
-                          onChange={e => setForm(f => ({ ...f, selfRatio: Math.max(1, Number(e.target.value) || 1) }))}
+                          onChange={e => setForm(f => ({ ...f, selfRatio: e.target.value.replace(/^0+(?!$)/, "") }))}
                           className="w-20"
                         />
                       </div>
@@ -384,7 +386,7 @@ export default function Home() {
                           type="number"
                           min={1}
                           value={form.advanceRatio}
-                          onChange={e => setForm(f => ({ ...f, advanceRatio: Math.max(1, Number(e.target.value) || 1) }))}
+                          onChange={e => setForm(f => ({ ...f, advanceRatio: e.target.value.replace(/^0+(?!$)/, "") }))}
                           className="w-20"
                         />
                       </div>
