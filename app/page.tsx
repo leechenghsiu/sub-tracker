@@ -1,9 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Alert } from "@/components/ui/alert";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sun, Moon, Laptop, LogIn, LogOut, ListChecks, Menu, Plus } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -273,17 +274,29 @@ export default function Home() {
   }
 
   if (isLoading) {
-    return <div className="flex justify-center items-center min-h-screen text-muted-foreground">載入中...</div>;
+    return <div className="flex justify-center items-center min-h-[100dvh] text-muted-foreground">載入中...</div>;
   }
 
   if (!token) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <Card className="w-80">
+      <div className="flex flex-col items-center justify-center h-dvh min-h-[0dvh] p-4 bg-background">
+        <Card className="w-full max-w-xs sm:w-80 shadow-md max-h-[90dvh] overflow-auto">
           <CardHeader>
-            <CardTitle>SubTracker</CardTitle>
+            <div className="flex items-center gap-3">
+              <Image
+                src="/subtracker-light.png"
+                alt="SubTracker"
+                className="h-8 w-auto rounded-md border border-gray-300"
+                width={32}
+                height={32}
+                priority
+              />
+              <span className="font-bold select-none text-xl" style={{ lineHeight: '32px', height: 32, display: 'flex', alignItems: 'center' }}>
+                SubTracker
+              </span>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="overflow-visible">
             <form onSubmit={handleLogin} className="flex flex-col gap-4">
               <Input
                 placeholder="帳號"
@@ -300,7 +313,15 @@ export default function Home() {
               <Button type="submit" disabled={loading} className="mt-2 w-full">
                 <LogIn className="w-4 h-4 mr-2" />{loading ? "登入中..." : "登入"}
               </Button>
-              {error && <Alert variant="destructive" className="mt-2">{error}</Alert>}
+              {error && (
+                <Alert variant="destructive" className="mt-2 flex items-start gap-2">
+                  <AlertCircle className="mt-0.5 w-4 h-4" />
+                  <div>
+                    <AlertTitle>登入失敗</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                  </div>
+                </Alert>
+              )}
             </form>
           </CardContent>
         </Card>
