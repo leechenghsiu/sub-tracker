@@ -11,4 +11,5 @@ export type Subscription = {
   selfRatio: number;
   advanceRatio: number;
   isAdvance: boolean;
+  twdAmount?: number;
 }; 

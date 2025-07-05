@@ -89,17 +89,9 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
   // 排序 subscriptions
   const sortedSubscriptions = [...subscriptions].sort((a, b) => {
     if (sortBy === 'amount') {
-      const totalA = Number(a.price) || 0;
-      const selfA = Number(a.selfRatio) || 1;
-      const advA = Number(a.advanceRatio) || 0;
-      const myAmountA = totalA * (selfA / (selfA + (a.isAdvance ? advA : 0)));
-      const displayAmountA = convert(myAmountA, a.cycle);
-      const totalB = Number(b.price) || 0;
-      const selfB = Number(b.selfRatio) || 1;
-      const advB = Number(b.advanceRatio) || 0;
-      const myAmountB = totalB * (selfB / (selfB + (b.isAdvance ? advB : 0)));
-      const displayAmountB = convert(myAmountB, b.cycle);
-      return sortOrder === 'asc' ? displayAmountA - displayAmountB : displayAmountB - displayAmountA;
+      return sortOrder === 'asc'
+        ? (a.twdAmount ?? 0) - (b.twdAmount ?? 0)
+        : (b.twdAmount ?? 0) - (a.twdAmount ?? 0);
     } else {
       const dateA = getNextBillingDate(a).getTime();
       const dateB = getNextBillingDate(b).getTime();
@@ -175,7 +167,7 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
           const total = Number(sub.price) || 0;
           const self = Number(sub.selfRatio) || 1;
           const adv = Number(sub.advanceRatio) || 0;
-          const displayAmount = convert(total, sub.cycle);
+          const displayAmount = sub.twdAmount ?? convert(total, sub.cycle);
           // 代墊金額
           const advanceAmount = sub.isAdvance ? convert(total * (adv / (self + adv)), sub.cycle) : 0;
           const isExpanded = expandedId === sub._id;
