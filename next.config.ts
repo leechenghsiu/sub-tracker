@@ -1,7 +1,14 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
+// 加入 next-pwa 設定
+const withPWA = require('next-pwa')({
+  dest: 'public',
+  register: true,
+  skipWaiting: true,
+});
+
+const nextConfig: import('next').NextConfig = {
   /* config options here */
 };
 
-export default nextConfig;
+module.exports = withPWA(nextConfig);
