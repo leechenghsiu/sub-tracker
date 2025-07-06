@@ -183,7 +183,6 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
           const total = Number(sub.price) || 0;
           const self = Number(sub.selfRatio) || 1;
           const adv = Number(sub.advanceRatio) || 0;
-          const displayAmount = toTWD(convert(total, sub.cycle), sub.currency);
           // 代墊金額
           const advanceAmount = sub.isAdvance ? toTWD(convert(total * (adv / (self + adv)), sub.cycle), sub.currency) : 0;
           const isExpanded = expandedId === sub._id;
