@@ -65,6 +65,21 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
     return billingDate;
   }
 
+  // 幣別對台幣匯率（可依實際需求調整）
+  const EXCHANGE_RATE: Record<string, number> = {
+    TWD: 1,
+    USD: 32,
+    JPY: 0.21,
+    EUR: 35,
+    HKD: 4.1,
+    CNY: 4.5
+  };
+
+  // 換算成台幣金額，並依 mode 換算週期
+  function toTWD(amount: number, currency: string) {
+    return amount * (EXCHANGE_RATE[currency] || 1);
+  }
+
   // 排序狀態循環
   const sortStates: Array<{ by: 'amount' | 'date', order: 'asc' | 'desc' }> = [
     { by: 'amount', order: 'asc' },
@@ -86,12 +101,13 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
     return sortOrder === 'asc' ? <ChevronUp className="w-4 h-4 inline ml-1" /> : <ChevronDown className="w-4 h-4 inline ml-1" />;
   }
 
-  // 排序 subscriptions
+  // 排序 subscriptions，依照 mode 換算後的台幣金額
   const sortedSubscriptions = [...subscriptions].sort((a, b) => {
     if (sortBy === 'amount') {
-      return sortOrder === 'asc'
-        ? (a.twdAmount ?? 0) - (b.twdAmount ?? 0)
-        : (b.twdAmount ?? 0) - (a.twdAmount ?? 0);
+      // 先換算成對應 mode 的金額，再換算台幣
+      const aAmount = toTWD(convert(Number(a.price) || 0, a.cycle), a.currency);
+      const bAmount = toTWD(convert(Number(b.price) || 0, b.cycle), b.currency);
+      return sortOrder === 'asc' ? aAmount - bAmount : bAmount - aAmount;
     } else {
       const dateA = getNextBillingDate(a).getTime();
       const dateB = getNextBillingDate(b).getTime();
@@ -167,9 +183,9 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
           const total = Number(sub.price) || 0;
           const self = Number(sub.selfRatio) || 1;
           const adv = Number(sub.advanceRatio) || 0;
-          const displayAmount = sub.twdAmount ?? convert(total, sub.cycle);
+          const displayAmount = toTWD(convert(total, sub.cycle), sub.currency);
           // 代墊金額
-          const advanceAmount = sub.isAdvance ? convert(total * (adv / (self + adv)), sub.cycle) : 0;
+          const advanceAmount = sub.isAdvance ? toTWD(convert(total * (adv / (self + adv)), sub.cycle), sub.currency) : 0;
           const isExpanded = expandedId === sub._id;
           return (
             <div key={sub._id} className="transition-all">
@@ -187,7 +203,8 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
                   </div>
                 </div>
                 <div className="text-lg font-bold whitespace-nowrap">
-                  ${formatNumberWithCommas(Math.floor(displayAmount))} {sub.currency}
+                  ${formatNumberWithCommas(Math.floor(convert(total, sub.cycle)))} {sub.currency}
+                  {/* <span className="text-xs text-gray-500 ml-2">（${formatNumberWithCommas(Math.floor(displayAmount))} TWD）</span> */}
                 </div>
                 <button
                   type="button"
@@ -201,12 +218,12 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
               {/* 展開內容 */}
               {isExpanded && (
                 <div className="bg-muted px-6 py-3 text-sm text-gray-700 dark:text-gray-200 border-t">
-                  <div className="mb-1">自己負擔：<span className="font-bold">${formatNumberWithCommas(Math.floor(convert(total * (self / (self + (sub.isAdvance ? adv : 0))), sub.cycle)))} {sub.currency}</span></div>
+                  <div className="mb-1">自己負擔：<span className="font-bold">${formatNumberWithCommas(Math.floor(toTWD(convert(total * (self / (self + (sub.isAdvance ? adv : 0))), sub.cycle), sub.currency)))} TWD</span></div>
                   <div className="mb-1">週期：{sub.cycle === 'monthly' ? '每月' : sub.cycle === 'halfyear' ? '每半年' : '每年'}</div>
                   <div className="mb-1">下次帳單日：{format(getNextBillingDate(sub), 'yyyy-MM-dd')}</div>
                   {sub.isAdvance && (
                     <>
-                      <div className="mb-1">代墊金額：<span className="font-bold">${formatNumberWithCommas(Math.floor(advanceAmount))} {sub.currency}</span></div>
+                      <div className="mb-1">代墊金額：<span className="font-bold">${formatNumberWithCommas(Math.floor(advanceAmount))} TWD</span></div>
                       <div className="mb-1 text-xs text-gray-500">（總金額 × 代墊比例 / 總比例，已依週期換算）</div>
                       <div className="mb-1">分攤比例：自己 {sub.selfRatio}，代墊 {sub.advanceRatio}</div>
                     </>
@@ -292,7 +309,7 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
                 </div>
                 <div className="w-full">
                   <label className="block mb-1 text-sm font-medium">帳單起始日</label>
-                  <Input value={editMode && form ? form.billingDate : selected.billingDate} onChange={e => editMode && form && setForm({ ...form, billingDate: e.target.value })} disabled={!editMode} className="w-full" />
+                  <Input value={editMode && form ? (form.billingDate ? format(new Date(form.billingDate), "yyyy-MM-dd") : "") : (selected.billingDate ? format(new Date(selected.billingDate), "yyyy-MM-dd") : "")} onChange={e => editMode && form && setForm({ ...form, billingDate: e.target.value })} disabled={!editMode} className="w-full" />
                 </div>
                 <div>
                   <label className="block mb-1 text-sm font-medium">週期</label>
