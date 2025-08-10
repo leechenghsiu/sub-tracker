@@ -19,6 +19,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Subscription } from "../components/types";
 import EmptyState from "../components/EmptyState";
 import OverviewTabs from "../components/OverviewTabs";
+import SubscriptionSkeleton from "../components/SubscriptionSkeleton";
 import Image from "next/image";
 import { Montserrat } from "next/font/google";
 const montserrat = Montserrat({ subsets: ["latin"], weight: "700" });
@@ -165,6 +166,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(false);
+  const [dataLoading, setDataLoading] = useState(false);
   // form 狀態加 selfRatio, advanceRatio
   const [form, setForm] = useState({
     name: "",
@@ -192,6 +194,20 @@ export default function Home() {
       fetchSubscriptions(savedToken);
     }
     setIsLoading(false);
+    
+    // iOS Safari viewport fix
+    const setVh = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    };
+    setVh();
+    window.addEventListener('resize', setVh);
+    window.addEventListener('orientationchange', setVh);
+    
+    return () => {
+      window.removeEventListener('resize', setVh);
+      window.removeEventListener('orientationchange', setVh);
+    };
   }, []);
 
   // 登入
@@ -226,22 +242,27 @@ export default function Home() {
 
   // 取得訂閱資料
   async function fetchSubscriptions(token: string) {
-    const res = await fetch("/api/subscription", {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    if (!res.ok) {
-      // 讀取錯誤訊息
-      let errorMsg = "取得訂閱失敗";
-      try {
-        const err = await res.json();
-        errorMsg = err.error || errorMsg;
-      } catch {}
-      setSubscriptions([]);
-      alert(errorMsg);
-      return;
+    setDataLoading(true);
+    try {
+      const res = await fetch("/api/subscription", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        // 讀取錯誤訊息
+        let errorMsg = "取得訂閱失敗";
+        try {
+          const err = await res.json();
+          errorMsg = err.error || errorMsg;
+        } catch {}
+        setSubscriptions([]);
+        alert(errorMsg);
+        return;
+      }
+      const data = await res.json();
+      setSubscriptions(data);
+    } finally {
+      setDataLoading(false);
     }
-    const data = await res.json();
-    setSubscriptions(data);
   }
 
   // 新增訂閱
@@ -279,8 +300,8 @@ export default function Home() {
 
   if (!token) {
     return (
-      <div className="flex flex-col items-center justify-center h-dvh min-h-[0dvh] p-4 bg-background">
-        <Card className="w-full max-w-xs sm:w-80 shadow-md max-h-[90dvh] overflow-auto">
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-background ios-full-height">
+        <Card className="w-full max-w-xs sm:w-80 shadow-md max-h-[90vh] overflow-auto">
           <CardHeader>
             <div className="flex items-center gap-3">
               <Image
@@ -463,7 +484,9 @@ export default function Home() {
           </Dialog>
       {/* 主內容區 */}
       <div className="max-w-xl mx-auto p-4 flex-1 flex flex-col">
-        {subscriptions.length === 0 ? (
+        {dataLoading ? (
+          <SubscriptionSkeleton />
+        ) : subscriptions.length === 0 ? (
           <EmptyState onAdd={() => setOpen(true)} />
         ) : (
           <OverviewTabs subscriptions={subscriptions} tabMode={tabMode} setTabMode={setTabMode} token={token} onRefresh={() => fetchSubscriptions(token!)} />

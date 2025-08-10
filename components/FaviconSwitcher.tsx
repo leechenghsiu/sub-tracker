@@ -3,15 +3,24 @@ import { useEffect } from "react";
 import { useTheme } from "next-themes";
 
 export default function FaviconSwitcher() {
-  const { theme } = useTheme();
+  const { theme, systemTheme } = useTheme();
+  
   useEffect(() => {
-    const favicon = document.querySelector('link[rel="icon"]');
+    const favicon = document.querySelector('link[rel="icon"]') as HTMLLinkElement;
+    const appleIcon = document.querySelector('link[rel="apple-touch-icon"]') as HTMLLinkElement;
+    
     if (!favicon) return;
-    if (theme === 'dark') {
-      favicon.setAttribute('href', '/favicon-dark.ico');
+    
+    const isDark = theme === 'dark' || (theme === 'system' && systemTheme === 'dark');
+    
+    if (isDark) {
+      favicon.href = '/favicon-dark-96x96.png';
+      if (appleIcon) appleIcon.href = '/apple-touch-icon-dark.png';
     } else {
-      favicon.setAttribute('href', '/favicon-light.ico');
+      favicon.href = '/favicon-96x96.png';
+      if (appleIcon) appleIcon.href = '/apple-touch-icon.png';
     }
-  }, [theme]);
+  }, [theme, systemTheme]);
+  
   return null;
 } 

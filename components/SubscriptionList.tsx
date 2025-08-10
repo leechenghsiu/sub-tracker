@@ -3,7 +3,10 @@ import { Subscription } from "./types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { format } from "date-fns";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, CalendarIcon } from "lucide-react";
+import { Calendar } from "./ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { cn } from "@/lib/utils";
 import { formatNumberWithCommas } from "@/lib/utils";
 import { Input } from "./ui/input";
 import { Checkbox } from "./ui/checkbox";
@@ -28,6 +31,7 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
   // 編輯狀態
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState<Subscription | null>(null);
+  const [editDate, setEditDate] = useState<Date | undefined>(undefined);
 
   function convert(amount: number, cycle: string) {
     if (mode === 'monthly') {
@@ -136,6 +140,7 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
       if (res.ok) {
         setOpen(false);
         setEditMode(false);
+        setEditDate(undefined);
         onRefresh();
       }
     } finally {
@@ -157,6 +162,7 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
       if (res.ok) {
         setOpen(false);
         setEditMode(false);
+        setEditDate(undefined);
         setConfirmDelete(false);
         onRefresh();
       }
@@ -251,7 +257,7 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
         </DialogContent>
       </Dialog>
       {/* Dialog 詳細內容（原本的 Dialog 內容） */}
-      <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditMode(false); }}>
+      <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) { setEditMode(false); setEditDate(undefined); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>訂閱詳情</DialogTitle>
@@ -308,7 +314,35 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
                 </div>
                 <div className="w-full">
                   <label className="block mb-1 text-sm font-medium">帳單起始日</label>
-                  <Input value={editMode && form ? (form.billingDate ? format(new Date(form.billingDate), "yyyy-MM-dd") : "") : (selected.billingDate ? format(new Date(selected.billingDate), "yyyy-MM-dd") : "")} onChange={e => editMode && form && setForm({ ...form, billingDate: e.target.value })} disabled={!editMode} className="w-full" />
+                  {editMode && form ? (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !editDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {editDate ? format(editDate, "yyyy-MM-dd") : "選擇日期"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={editDate}
+                          onSelect={d => {
+                            setEditDate(d);
+                            setForm({ ...form, billingDate: d ? d.toISOString().slice(0, 10) : "" });
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  ) : (
+                    <Input value={selected.billingDate ? format(new Date(selected.billingDate), "yyyy-MM-dd") : ""} disabled className="w-full" />
+                  )}
                 </div>
                 <div>
                   <label className="block mb-1 text-sm font-medium">週期</label>
@@ -322,11 +356,19 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
                   {editMode ? (
                     <>
                       <Button type="submit" variant="default" disabled={loading}>{loading ? "儲存中..." : "儲存"}</Button>
-                      <Button type="button" variant="outline" onClick={() => setEditMode(false)} disabled={loading}>取消</Button>
+                      <Button type="button" variant="outline" onClick={() => { 
+                        setEditMode(false); 
+                        setEditDate(undefined); 
+                      }} disabled={loading}>取消</Button>
                     </>
                   ) : (
                     <>
-                      <Button type="button" variant="outline" onClick={e => { e.preventDefault(); setEditMode(true); setForm(selected); }}>編輯</Button>
+                      <Button type="button" variant="outline" onClick={e => { 
+                        e.preventDefault(); 
+                        setEditMode(true); 
+                        setForm(selected); 
+                        setEditDate(selected.billingDate ? new Date(selected.billingDate) : undefined);
+                      }}>編輯</Button>
                       <Button type="button" variant="destructive" onClick={() => setConfirmDelete(true)}>刪除</Button>
                     </>
                   )}
