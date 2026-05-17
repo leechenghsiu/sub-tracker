@@ -248,14 +248,12 @@ export default function Home() {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
-        // 讀取錯誤訊息
-        let errorMsg = "取得訂閱失敗";
-        try {
-          const err = await res.json();
-          errorMsg = err.error || errorMsg;
-        } catch {}
+        if (res.status === 401) {
+          setToken(null);
+          localStorage.removeItem("token");
+          return;
+        }
         setSubscriptions([]);
-        alert(errorMsg);
         return;
       }
       const data = await res.json();
@@ -284,10 +282,11 @@ export default function Home() {
           billingDate: new Date(form.billingDate)
         })
       });
+      if (res.status === 401) { handleLogout(); return; }
       if (res.ok) {
         fetchSubscriptions(token!);
         setForm({ name: "", price: "", currency: "TWD", billingDate: "", cycle: "monthly", note: "", isAdvance: false, selfRatio: "1", advanceRatio: "1" });
-        setOpen(false); // 新增成功後關閉 Dialog
+        setOpen(false);
       }
     } finally {
       setLoading(false);
@@ -489,7 +488,7 @@ export default function Home() {
         ) : subscriptions.length === 0 ? (
           <EmptyState onAdd={() => setOpen(true)} />
         ) : (
-          <OverviewTabs subscriptions={subscriptions} tabMode={tabMode} setTabMode={setTabMode} token={token} onRefresh={() => fetchSubscriptions(token!)} />
+          <OverviewTabs subscriptions={subscriptions} tabMode={tabMode} setTabMode={setTabMode} token={token} onRefresh={() => fetchSubscriptions(token!)} onUnauthorized={handleLogout} />
         )}
       </div>
     </>

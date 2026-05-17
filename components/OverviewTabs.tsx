@@ -10,9 +10,10 @@ interface OverviewTabsProps {
   setTabMode: (v: 'monthly'|'halfyear'|'yearly') => void;
   token: string;
   onRefresh: () => void;
+  onUnauthorized: () => void;
 }
 
-export default function OverviewTabs({ subscriptions, tabMode, setTabMode, token, onRefresh }: OverviewTabsProps) {
+export default function OverviewTabs({ subscriptions, tabMode, setTabMode, token, onRefresh, onUnauthorized }: OverviewTabsProps) {
   return (
     <Tabs defaultValue="monthly" className="w-full" onValueChange={v => setTabMode(v as 'monthly'|'halfyear'|'yearly')}>
       <div className="mb-4">
@@ -26,13 +27,13 @@ export default function OverviewTabs({ subscriptions, tabMode, setTabMode, token
         </div>
       </div>
       <TabsContent value="monthly">
-        <SubscriptionList subscriptions={subscriptions} mode="monthly" token={token} onRefresh={onRefresh} />
+        <SubscriptionList subscriptions={subscriptions} mode="monthly" token={token} onRefresh={onRefresh} onUnauthorized={onUnauthorized} />
       </TabsContent>
       <TabsContent value="halfyear">
-        <SubscriptionList subscriptions={subscriptions} mode="halfyear" token={token} onRefresh={onRefresh} />
+        <SubscriptionList subscriptions={subscriptions} mode="halfyear" token={token} onRefresh={onRefresh} onUnauthorized={onUnauthorized} />
       </TabsContent>
       <TabsContent value="yearly">
-        <SubscriptionList subscriptions={subscriptions} mode="yearly" token={token} onRefresh={onRefresh} />
+        <SubscriptionList subscriptions={subscriptions} mode="yearly" token={token} onRefresh={onRefresh} onUnauthorized={onUnauthorized} />
       </TabsContent>
     </Tabs>
   );

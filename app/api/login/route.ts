@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 建立 JWT
-  const token = jwt.sign({ username }, PASSWORD, { expiresIn: '7d' })
+  const token = jwt.sign({ username }, PASSWORD, { expiresIn: '180d' })
 
   // 回傳 token
   return NextResponse.json({ token })

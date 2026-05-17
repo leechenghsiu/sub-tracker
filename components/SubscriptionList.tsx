@@ -16,9 +16,10 @@ interface SubscriptionListProps {
   mode: 'monthly' | 'halfyear' | 'yearly';
   token: string;
   onRefresh: () => void;
+  onUnauthorized: () => void;
 }
 
-export default function SubscriptionList({ subscriptions, mode, token, onRefresh }: SubscriptionListProps) {
+export default function SubscriptionList({ subscriptions, mode, token, onRefresh, onUnauthorized }: SubscriptionListProps) {
   const [loading, setLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [sortBy, setSortBy] = useState<'amount' | 'date'>("amount");
@@ -137,6 +138,7 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
           billingDate: new Date(form.billingDate)
         })
       });
+      if (res.status === 401) { onUnauthorized(); return; }
       if (res.ok) {
         setOpen(false);
         setEditMode(false);
@@ -159,6 +161,7 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
           Authorization: `Bearer ${token}`
         }
       });
+      if (res.status === 401) { onUnauthorized(); return; }
       if (res.ok) {
         setOpen(false);
         setEditMode(false);
