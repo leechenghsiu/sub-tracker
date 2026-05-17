@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Sun, Moon, Laptop, LogIn, LogOut, ListChecks, Menu, Plus } from "lucide-react";
+import { Sun, Moon, Laptop, LogIn, LogOut, ListChecks, Menu, Plus, X, Users } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,6 +19,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Subscription } from "../components/types";
 import EmptyState from "../components/EmptyState";
 import OverviewTabs from "../components/OverviewTabs";
+import SplitBillList from "../components/SplitBillList";
 import SubscriptionSkeleton from "../components/SubscriptionSkeleton";
 import Image from "next/image";
 import { Montserrat } from "next/font/google";
@@ -167,7 +168,6 @@ export default function Home() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
-  // form 狀態加 selfRatio, advanceRatio
   const [form, setForm] = useState({
     name: "",
     price: "",
@@ -179,12 +179,14 @@ export default function Home() {
     selfRatio: "1",
     advanceRatio: "1"
   });
+  const [memberTags, setMemberTags] = useState<string[]>([]);
+  const [memberInput, setMemberInput] = useState("");
+  const [perPersonAmount, setPerPersonAmount] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [date, setDate] = useState<Date | undefined>(form.billingDate ? new Date(form.billingDate) : undefined);
-  // 新增: Dialog 開關 state
   const [open, setOpen] = useState(false);
-  // 在 Home 組件內部 state 區域加：
   const [tabMode, setTabMode] = useState<'monthly' | 'halfyear' | 'yearly'>('monthly');
+  const [mainTab, setMainTab] = useState<'subscriptions' | 'splitbills'>('subscriptions');
 
   // 頁面載入時自動讀取 localStorage
   useEffect(() => {
@@ -241,8 +243,8 @@ export default function Home() {
   }
 
   // 取得訂閱資料
-  async function fetchSubscriptions(token: string) {
-    setDataLoading(true);
+  async function fetchSubscriptions(token: string, showLoading = true) {
+    if (showLoading) setDataLoading(true);
     try {
       const res = await fetch("/api/subscription", {
         headers: { Authorization: `Bearer ${token}` }
@@ -259,7 +261,7 @@ export default function Home() {
       const data = await res.json();
       setSubscriptions(data);
     } finally {
-      setDataLoading(false);
+      if (showLoading) setDataLoading(false);
     }
   }
 
@@ -267,25 +269,36 @@ export default function Home() {
   async function handleAdd(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
+    const now = format(new Date(), "yyyy-MM");
     try {
+      const body: Record<string, unknown> = {
+        ...form,
+        price: form.price === "" ? 0 : parseFloat(form.price),
+        selfRatio: form.selfRatio === "" ? 1 : Number(form.selfRatio),
+        advanceRatio: form.advanceRatio === "" ? 1 : Number(form.advanceRatio),
+        billingDate: new Date(form.billingDate),
+      };
+      if (form.isAdvance && memberTags.length > 0) {
+        body.perPersonAmount = parseFloat(perPersonAmount) || 0;
+        body.knownMembers = memberTags;
+        body.records = [{ month: now, participants: memberTags }];
+        body.settlements = [];
+      }
       const res = await fetch("/api/subscription", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({
-          ...form,
-          price: form.price === "" ? 0 : parseFloat(form.price),
-          selfRatio: form.selfRatio === "" ? 1 : Number(form.selfRatio),
-          advanceRatio: form.advanceRatio === "" ? 1 : Number(form.advanceRatio),
-          billingDate: new Date(form.billingDate)
-        })
+        body: JSON.stringify(body)
       });
       if (res.status === 401) { handleLogout(); return; }
       if (res.ok) {
         fetchSubscriptions(token!);
         setForm({ name: "", price: "", currency: "TWD", billingDate: "", cycle: "monthly", note: "", isAdvance: false, selfRatio: "1", advanceRatio: "1" });
+        setMemberTags([]);
+        setMemberInput("");
+        setPerPersonAmount("");
         setOpen(false);
       }
     } finally {
@@ -357,15 +370,38 @@ export default function Home() {
     <>
       <Navbar onLogout={handleLogout} token={token} />
       {/* 置頂區塊 */}
-      <div className="flex justify-between items-center max-w-xl mx-auto p-4 mt-[68px]">
-          <h2 className="text-xl flex items-center"><ListChecks className="w-5 h-5 mr-2" />訂閱列表</h2>
-          <Button variant="default" className="flex items-center gap-2" onClick={() => setOpen(true)}><Plus className="w-4 h-4" />新增訂閱</Button>
+      <div className="max-w-xl mx-auto px-4 mt-[68px] pt-4 space-y-3">
+        <Tabs value={mainTab} onValueChange={v => setMainTab(v as 'subscriptions' | 'splitbills')} className="w-full">
+          <TabsList className="w-full grid grid-cols-2">
+            <TabsTrigger value="subscriptions"><ListChecks className="w-4 h-4 mr-1.5" />個人訂閱</TabsTrigger>
+            <TabsTrigger value="splitbills"><Users className="w-4 h-4 mr-1.5" />代墊項目</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <div className="flex justify-end">
+          <Button variant="default" className="flex items-center gap-2" onClick={() => {
+            if (mainTab === 'splitbills') {
+              setForm(f => ({ ...f, isAdvance: true }));
+            } else {
+              setForm(f => ({ ...f, isAdvance: false }));
+            }
+            setOpen(true);
+          }}><Plus className="w-4 h-4" />新增{mainTab === 'splitbills' ? '代墊' : '訂閱'}</Button>
         </div>
+      </div>
       {/* Dialog 不包在主內容區 */}
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={v => {
+          setOpen(v);
+          if (!v) {
+            setForm({ name: "", price: "", currency: "TWD", billingDate: "", cycle: "monthly", note: "", isAdvance: false, selfRatio: "1", advanceRatio: "1" });
+            setMemberTags([]);
+            setMemberInput("");
+            setPerPersonAmount("");
+            setDate(undefined);
+          }
+        }}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>新增訂閱</DialogTitle>
+              <DialogTitle>{form.isAdvance ? "新增代墊" : "新增訂閱"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleAdd} className="flex flex-col gap-4 mt-4">
                 <div>
@@ -379,44 +415,55 @@ export default function Home() {
                     <Input placeholder="0" type="number" inputMode="decimal" pattern="[0-9]*" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value.replace(/^0+(?!$)/, "") }))} required className="pl-6" />
                   </div>
                   <div className="flex items-center gap-2 mt-2">
-                    <Checkbox id="advance" checked={form.isAdvance} onCheckedChange={v => setForm(f => ({ ...f, isAdvance: !!v }))} />
+                    <Checkbox id="advance" checked={form.isAdvance} onCheckedChange={v => {
+                      setForm(f => ({ ...f, isAdvance: !!v }));
+                    }} />
                     <label htmlFor="advance" className="text-sm select-none cursor-pointer">此訂閱包含代墊</label>
                   </div>
                   {form.isAdvance && (
-                    <div className="flex gap-4 mt-2">
+                    <div className="mt-2 space-y-3">
                       <div>
-                        <label className="block mb-1 text-xs font-medium">自己出的比例</label>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={form.selfRatio}
-                          onChange={e => setForm(f => ({ ...f, selfRatio: e.target.value.replace(/^0+(?!$)/, "") }))}
-                          className="w-20"
-                        />
-                      </div>
-                      <div>
-                        <label className="block mb-1 text-xs font-medium">代墊的比例</label>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={form.advanceRatio}
-                          onChange={e => setForm(f => ({ ...f, advanceRatio: e.target.value.replace(/^0+(?!$)/, "") }))}
-                          className="w-20"
-                        />
-                      </div>
-                      <div>
-                        <label className="block mb-1 text-xs font-medium">每一份比例金額</label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-base">$</span>
+                        <label className="block text-xs font-medium mb-1">每人每月金額</label>
+                        <div className="relative w-28">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
                           <Input
+                            placeholder="0"
                             type="number"
-                            value={(() => {
-                              const total = Number(form.price) || 0;
-                              const ratio = Number(form.selfRatio) + Number(form.advanceRatio);
-                              return ratio > 0 ? Math.floor(total / ratio) : "";
-                            })()}
-                            disabled
-                            className="w-28 bg-muted pl-6"
+                            inputMode="decimal"
+                            value={perPersonAmount}
+                            onChange={e => setPerPersonAmount(e.target.value)}
+                            className="pl-5"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium mb-1">分帳成員</label>
+                        <div className="flex flex-wrap gap-1.5 rounded-md border border-input bg-card px-2 py-1.5 min-h-[36px] items-center">
+                          {memberTags.map(tag => (
+                            <span key={tag} className="inline-flex items-center gap-1 bg-primary/15 text-primary text-xs font-medium px-2 py-0.5 rounded">
+                              {tag}
+                              <button type="button" onClick={() => setMemberTags(memberTags.filter(t => t !== tag))} className="hover:text-destructive">
+                                <X className="w-3 h-3" />
+                              </button>
+                            </span>
+                          ))}
+                          <input
+                            placeholder={memberTags.length === 0 ? "輸入姓名後按 Enter..." : ""}
+                            value={memberInput}
+                            onChange={e => setMemberInput(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === "Enter" && memberInput.trim()) {
+                                e.preventDefault();
+                                if (!memberTags.includes(memberInput.trim())) {
+                                  setMemberTags([...memberTags, memberInput.trim()]);
+                                }
+                                setMemberInput("");
+                              }
+                              if (e.key === "Backspace" && !memberInput && memberTags.length > 0) {
+                                setMemberTags(memberTags.slice(0, -1));
+                              }
+                            }}
+                            className="flex-1 min-w-[80px] bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                           />
                         </div>
                       </div>
@@ -480,7 +527,7 @@ export default function Home() {
                   <Input placeholder="請輸入備註 (可選)" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
                 </div>
                 <Button type="submit" className="mt-2" disabled={loading}>
-                  {loading ? "新增中..." : "新增訂閱"}
+                  {loading ? "新增中..." : form.isAdvance ? "新增代墊" : "新增訂閱"}
                 </Button>
               </form>
             </DialogContent>
@@ -489,10 +536,14 @@ export default function Home() {
       <div className="max-w-xl mx-auto p-4 flex-1 flex flex-col">
         {dataLoading ? (
           <SubscriptionSkeleton />
-        ) : subscriptions.length === 0 ? (
-          <EmptyState onAdd={() => setOpen(true)} />
+        ) : mainTab === 'subscriptions' ? (
+          subscriptions.length === 0 ? (
+            <EmptyState onAdd={() => setOpen(true)} />
+          ) : (
+            <OverviewTabs subscriptions={subscriptions} tabMode={tabMode} setTabMode={setTabMode} token={token} onRefresh={() => fetchSubscriptions(token!)} onUnauthorized={handleLogout} />
+          )
         ) : (
-          <OverviewTabs subscriptions={subscriptions} tabMode={tabMode} setTabMode={setTabMode} token={token} onRefresh={() => fetchSubscriptions(token!)} onUnauthorized={handleLogout} />
+          <SplitBillList subscriptions={subscriptions.filter(s => s.isAdvance)} token={token!} onRefresh={() => fetchSubscriptions(token!, false)} onUnauthorized={handleLogout} />
         )}
       </div>
     </>

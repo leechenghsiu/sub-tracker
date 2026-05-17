@@ -34,6 +34,17 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
   const [form, setForm] = useState<Subscription | null>(null);
   const [editDate, setEditDate] = useState<Date | undefined>(undefined);
 
+  function getMyAmount(sub: Subscription): number {
+    const total = Number(sub.price) || 0;
+    if (!sub.isAdvance) return total;
+    if (sub.knownMembers && sub.perPersonAmount != null) {
+      return total - sub.knownMembers.length * (sub.perPersonAmount || 0);
+    }
+    const s = Number(sub.selfRatio) || 1;
+    const a = Number(sub.advanceRatio) || 0;
+    return total * (s / (s + a));
+  }
+
   function convert(amount: number, cycle: string) {
     if (mode === 'monthly') {
       if (cycle === 'monthly') return amount;
@@ -110,8 +121,8 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
   const sortedSubscriptions = [...subscriptions].sort((a, b) => {
     if (sortBy === 'amount') {
       // 先換算成對應 mode 的金額，再換算台幣
-      const aAmount = toTWD(convert(Number(a.price) || 0, a.cycle), a.currency);
-      const bAmount = toTWD(convert(Number(b.price) || 0, b.cycle), b.currency);
+      const aAmount = toTWD(convert(getMyAmount(a), a.cycle), a.currency);
+      const bAmount = toTWD(convert(getMyAmount(b), b.cycle), b.currency);
       return sortOrder === 'asc' ? aAmount - bAmount : bAmount - aAmount;
     } else {
       const dateA = getNextBillingDate(a).getTime();
@@ -192,8 +203,12 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
           const total = Number(sub.price) || 0;
           const self = Number(sub.selfRatio) || 1;
           const adv = Number(sub.advanceRatio) || 0;
-          // 代墊金額
-          const advanceAmount = sub.isAdvance ? toTWD(convert(total * (adv / (self + adv)), sub.cycle), sub.currency) : 0;
+          // 我的份額
+          const myAmount = sub.isAdvance
+            ? (sub.knownMembers && sub.perPersonAmount != null)
+              ? total - (sub.knownMembers.length * (sub.perPersonAmount || 0))
+              : total * (self / (self + adv))
+            : total;
           const isExpanded = expandedId === sub._id;
           return (
             <div key={sub._id} className="transition-all">
@@ -203,7 +218,7 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
                   <div className="font-semibold text-base truncate flex items-center gap-1">
                     {sub.name}
                     {sub.isAdvance && (
-                      <span className="ml-1 text-xs text-blue-500 border border-blue-200 rounded px-1">含代墊</span>
+                      <span className="ml-1 text-xs text-blue-500 border border-blue-200 rounded px-1">代墊</span>
                     )}
                   </div>
                   <div className="text-xs text-gray-500 mt-0.5">
@@ -211,8 +226,7 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
                   </div>
                 </div>
                 <div className="text-lg font-bold whitespace-nowrap">
-                  ${formatNumberWithCommas(Math.floor(convert(total, sub.cycle)))} {sub.currency}
-                  {/* <span className="text-xs text-gray-500 ml-2">（${formatNumberWithCommas(Math.floor(displayAmount))} TWD）</span> */}
+                  ${formatNumberWithCommas(Math.floor(convert(myAmount, sub.cycle)))} {sub.currency}
                 </div>
                 <button
                   type="button"
@@ -226,14 +240,13 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
               {/* 展開內容 */}
               {isExpanded && (
                 <div className="bg-muted px-6 py-3 text-sm text-gray-700 dark:text-gray-200 border-t">
-                  <div className="mb-1">自己負擔：<span className="font-bold">${formatNumberWithCommas(Math.floor(toTWD(convert(total * (self / (self + (sub.isAdvance ? adv : 0))), sub.cycle), sub.currency)))} TWD</span></div>
                   <div className="mb-1">週期：{sub.cycle === 'monthly' ? '每月' : sub.cycle === 'halfyear' ? '每半年' : '每年'}</div>
                   <div className="mb-1">下次帳單日：{format(getNextBillingDate(sub), 'yyyy-MM-dd')}</div>
                   {sub.isAdvance && (
                     <>
-                      <div className="mb-1">代墊金額：<span className="font-bold">${formatNumberWithCommas(Math.floor(advanceAmount))} TWD</span></div>
-                      <div className="mb-1 text-xs text-gray-500">（總金額 × 代墊比例 / 總比例，已依週期換算）</div>
-                      <div className="mb-1">分攤比例：自己 {sub.selfRatio}，代墊 {sub.advanceRatio}</div>
+                      <div className="mb-1">總金額：<span className="font-bold">${formatNumberWithCommas(Math.floor(convert(total, sub.cycle)))} {sub.currency}</span></div>
+                      <div className="mb-1">我的份額：<span className="font-bold">${formatNumberWithCommas(Math.floor(convert(myAmount, sub.cycle)))} {sub.currency}</span></div>
+                      <div className="mb-1">代墊人數：{sub.knownMembers?.length || adv}人 × ${sub.perPersonAmount ?? Math.floor(total / (self + adv))}/月</div>
                     </>
                   )}
                   {sub.note && <div className="mt-2 text-xs text-gray-500">備註：{sub.note}</div>}
