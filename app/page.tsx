@@ -319,12 +319,16 @@ export default function Home() {
           <CardContent className="overflow-visible">
             <form onSubmit={handleLogin} className="flex flex-col gap-4">
               <Input
+                name="username"
+                autoComplete="username"
                 placeholder="帳號"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 autoFocus
               />
               <Input
+                name="password"
+                autoComplete="current-password"
                 placeholder="密碼"
                 type="password"
                 value={password}
