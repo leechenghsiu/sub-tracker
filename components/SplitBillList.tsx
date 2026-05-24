@@ -220,7 +220,7 @@ export default function SplitBillList({ subscriptions, token, onRefresh, onUnaut
                 </div>
                 <div className="text-right">
                   <div className="text-lg font-bold whitespace-nowrap">
-                    ${formatNumberWithCommas(Math.floor(totalBalance))}
+                    {sub.currency} ${formatNumberWithCommas(Math.floor(totalBalance))}
                   </div>
                   <div className="text-xs text-muted-foreground">待收</div>
                 </div>
