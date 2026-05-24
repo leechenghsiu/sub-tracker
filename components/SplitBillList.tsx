@@ -238,9 +238,8 @@ export default function SplitBillList({ subscriptions, token, onRefresh, onUnaut
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="font-medium">我</span>
-                      <span className="text-xs text-muted-foreground ml-2">${myShare}/月</span>
+                      <span className="text-xs text-muted-foreground ml-2">{sub.currency} ${myShare}/月</span>
                     </div>
-                    <span className="text-xs text-muted-foreground">自付</span>
                   </div>
                   {knownMembers.map(name => {
                     const { unsettledMonths, balance } = getPersonBalance(name, records, ppa, settlements);
@@ -251,7 +250,7 @@ export default function SplitBillList({ subscriptions, token, onRefresh, onUnaut
                           <span className="text-xs text-muted-foreground ml-2">{unsettledMonths}個月未結</span>
                         </div>
                         <span className={cn("font-bold", balance > 0 ? "text-red-500" : "text-green-500")}>
-                          ${formatNumberWithCommas(Math.floor(balance))}
+                          {sub.currency} ${formatNumberWithCommas(Math.floor(balance))}
                         </span>
                       </div>
                     );
