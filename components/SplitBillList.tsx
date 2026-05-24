@@ -215,7 +215,7 @@ export default function SplitBillList({ subscriptions, token, onRefresh, onUnaut
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-base truncate">{sub.name}</div>
                   <div className="text-xs text-muted-foreground mt-0.5">
-                    {knownMembers.length} 人分帳 · ${ppa}/人/月
+                    {knownMembers.length} 人分帳 · {sub.currency} ${ppa}/人/月
                   </div>
                 </div>
                 <div className="text-right">
@@ -289,7 +289,7 @@ export default function SplitBillList({ subscriptions, token, onRefresh, onUnaut
             return (
               <div className="mt-2">
                 <div className="flex items-center justify-between text-sm mb-3">
-                  <span className="text-muted-foreground">每人每月 <span className="font-bold text-foreground">${ppa}</span> · 總金額 ${detailSub.price}/{detailSub.cycle === 'monthly' ? '月' : detailSub.cycle === 'halfyear' ? '半年' : '年'}</span>
+                  <span className="text-muted-foreground">每人每月 <span className="font-bold text-foreground">${ppa}</span> · 總金額 ${detailSub.price}/{detailSub.cycle === 'monthly' ? '月' : detailSub.cycle === 'halfyear' ? '半年' : '年'} · {detailSub.currency}</span>
                 </div>
 
                 <Tabs defaultValue="records" className="w-full">
