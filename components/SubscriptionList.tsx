@@ -40,9 +40,10 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
     if (sub.knownMembers && sub.perPersonAmount != null) {
       return total - sub.knownMembers.length * (sub.perPersonAmount || 0);
     }
-    const s = Number(sub.selfRatio) || 1;
+    const s = Number(sub.selfRatio) || 0;
     const a = Number(sub.advanceRatio) || 0;
-    return total * (s / (s + a));
+    const r = s + a;
+    return r > 0 ? total * (s / r) : 0;
   }
 
   function convert(amount: number, cycle: string) {
@@ -201,13 +202,13 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
       <div className="rounded-lg border divide-y bg-card">
         {sortedSubscriptions.map(sub => {
           const total = Number(sub.price) || 0;
-          const self = Number(sub.selfRatio) || 1;
+          const self = Number(sub.selfRatio) || 0;
           const adv = Number(sub.advanceRatio) || 0;
-          // 我的份額
+          const ratioSum = self + adv;
           const myAmount = sub.isAdvance
             ? (sub.knownMembers && sub.perPersonAmount != null)
               ? total - (sub.knownMembers.length * (sub.perPersonAmount || 0))
-              : total * (self / (self + adv))
+              : ratioSum > 0 ? total * (self / ratioSum) : 0
             : total;
           const isExpanded = expandedId === sub._id;
           return (
@@ -299,7 +300,7 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
                     <div className="flex gap-4 mt-2">
                       <div>
                         <label className="block mb-1 text-xs font-medium">自己出的比例</label>
-                        <Input type="number" value={editMode && form ? (form.selfRatio ?? "") : (selected.selfRatio ?? "")} onChange={e => editMode && form && setForm({ ...form, selfRatio: e.target.value === "" ? 1 : Math.max(1, Number(e.target.value) || 1) })} disabled={!editMode} className="w-20" />
+                        <Input type="number" value={editMode && form ? (form.selfRatio ?? "") : (selected.selfRatio ?? "")} onChange={e => editMode && form && setForm({ ...form, selfRatio: e.target.value === "" ? 0 : Math.max(0, Number(e.target.value) || 0) })} disabled={!editMode} className="w-20" />
                       </div>
                       <div>
                         <label className="block mb-1 text-xs font-medium">代墊的比例</label>

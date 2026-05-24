@@ -44,7 +44,7 @@ function monthLabel(m: string) {
 function getPerPersonAmount(sub: Subscription): number {
   if (sub.perPersonAmount != null && sub.perPersonAmount > 0) return sub.perPersonAmount;
   const total = Number(sub.price) || 0;
-  const self = Number(sub.selfRatio) || 1;
+  const self = Number(sub.selfRatio) || 0;
   const adv = Number(sub.advanceRatio) || 0;
   const ratio = self + adv;
   return ratio > 0 ? Math.floor(total / ratio) : 0;

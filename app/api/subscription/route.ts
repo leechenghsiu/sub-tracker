@@ -47,9 +47,10 @@ export async function GET(req: NextRequest) {
     const mode = (modeParam === 'monthly' || modeParam === 'halfyear' || modeParam === 'yearly') ? modeParam : 'monthly';
     const withTWD = subscriptions.map(sub => {
       const total = Number(sub.price) || 0;
-      const self = Number(sub.selfRatio) || 1;
+      const self = Number(sub.selfRatio) || 0;
       const adv = Number(sub.advanceRatio) || 0;
-      const myAmount = total * (self / (self + (sub.isAdvance ? adv : 0)));
+      const denom = self + (sub.isAdvance ? adv : 0);
+      const myAmount = denom > 0 ? total * (self / denom) : 0;
       const displayAmount = convert(myAmount, sub.cycle, mode);
       const twdAmount = (rates[sub.currency] || 1) * displayAmount;
       return { ...sub, twdAmount };
