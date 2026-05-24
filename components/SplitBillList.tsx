@@ -275,7 +275,7 @@ export default function SplitBillList({ subscriptions, token, onRefresh, onUnaut
 
       {/* 詳情 Dialog */}
       <Dialog open={!!detailSub} onOpenChange={v => { if (!v) { setDetailSub(null); setShowAddSettlement(false); setEditingRecordMonth(null); } }}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>{detailSub?.name}</DialogTitle>
           </DialogHeader>
@@ -286,7 +286,7 @@ export default function SplitBillList({ subscriptions, token, onRefresh, onUnaut
             const ppa = getPerPersonAmount(detailSub);
 
             return (
-              <div className="mt-2">
+              <div className="mt-2 overflow-y-auto overscroll-contain min-h-0">
                 <div className="flex items-center justify-between text-sm mb-3">
                   <span className="text-muted-foreground">每人每月 <span className="font-bold text-foreground">${ppa}</span> · 總金額 ${detailSub.price}/{detailSub.cycle === 'monthly' ? '月' : detailSub.cycle === 'halfyear' ? '半年' : '年'} · {detailSub.currency}</span>
                 </div>
