@@ -381,11 +381,22 @@ export default function SplitBillList({ subscriptions, token, onRefresh, onUnaut
                       </div>
                     )}
 
-                    {records.length === 0 && !editingRecordMonth ? (
-                      <p className="text-sm text-muted-foreground">尚無月份記錄</p>
+                    {(() => {
+                      const settledMonthsByPerson = new Map<string, Set<string>>();
+                      settlements.forEach(s => {
+                        if (!settledMonthsByPerson.has(s.person)) settledMonthsByPerson.set(s.person, new Set());
+                        (s.months || []).forEach(m => settledMonthsByPerson.get(s.person)!.add(m));
+                      });
+                      const unsettledRecords = records.filter(r =>
+                        r.participants.some(name => !settledMonthsByPerson.get(name)?.has(r.month))
+                      );
+                      const sortedRecords = [...unsettledRecords].sort((a, b) => a.month.localeCompare(b.month));
+
+                      return sortedRecords.length === 0 && !editingRecordMonth ? (
+                      <p className="text-sm text-muted-foreground">所有月份皆已結清</p>
                     ) : (
                       <div className="rounded-lg border divide-y">
-                        {[...records].sort((a, b) => a.month.localeCompare(b.month)).map(r => (
+                        {sortedRecords.map(r => (
                           <div key={r.month} className="px-3 py-2">
                             <div className="flex items-center justify-between mb-1">
                               <span className="text-sm font-medium">{monthLabel(r.month)}</span>
@@ -408,7 +419,8 @@ export default function SplitBillList({ subscriptions, token, onRefresh, onUnaut
                           </div>
                         ))}
                       </div>
-                    )}
+                    );
+                    })()}
                   </TabsContent>
 
                   <TabsContent value="balance" className="space-y-6">
