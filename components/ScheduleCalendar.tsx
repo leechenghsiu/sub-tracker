@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { ScheduleEvent } from "./types";
-import { EventRow, KIND_DOT, KIND_LABEL } from "./ScheduleEventRow";
+import { EventRow, KIND_CHIP, KIND_LABEL } from "./ScheduleEventRow";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -10,6 +10,7 @@ interface Props {
 }
 
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
+const MAX_CHIPS = 3; // 每格最多顯示幾個標籤，其餘以 +N 表示
 
 export default function ScheduleCalendar({ events, year, month }: Props) {
   // 依「幾號」把事件分組。
@@ -50,7 +51,7 @@ export default function ScheduleCalendar({ events, year, month }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border bg-card p-2">
+      <div className="rounded-lg border bg-card p-1.5">
         <div className="grid grid-cols-7 mb-1">
           {WEEKDAYS.map((w, i) => (
             <div key={w} className={cn("text-center text-xs py-1 font-medium", (i === 0 || i === 6) ? "text-rose-500" : "text-muted-foreground")}>{w}</div>
@@ -59,8 +60,9 @@ export default function ScheduleCalendar({ events, year, month }: Props) {
         <div className="grid grid-cols-7 gap-0.5">
           {cells.map((day, idx) => {
             if (day == null) return <div key={`blank-${idx}`} />;
-            const dayEvents = eventsByDay.get(day);
-            const kinds = dayEvents ? Array.from(new Set(dayEvents.map(e => e.kind))) : [];
+            const dayEvents = eventsByDay.get(day) ?? [];
+            const shown = dayEvents.slice(0, MAX_CHIPS);
+            const extra = dayEvents.length - shown.length;
             const isToday = day === todayDate;
             const isSelected = day === effectiveSelected;
             return (
@@ -69,19 +71,29 @@ export default function ScheduleCalendar({ events, year, month }: Props) {
                 type="button"
                 onClick={() => setSelected(day)}
                 className={cn(
-                  "aspect-square flex flex-col items-center justify-start pt-1 rounded-md text-sm transition-colors",
-                  isSelected ? "bg-primary/15 ring-1 ring-primary" : "hover:bg-muted",
+                  "min-h-[68px] p-0.5 flex flex-col items-stretch gap-0.5 rounded-md text-left align-top transition-colors overflow-hidden",
+                  isSelected ? "bg-primary/10 ring-1 ring-primary" : "hover:bg-muted",
                 )}
               >
-                <span className={cn(
-                  "w-6 h-6 flex items-center justify-center rounded-full",
-                  isToday && "bg-primary text-primary-foreground font-bold",
-                )}>{day}</span>
-                <span className="mt-1 flex gap-0.5 h-1.5">
-                  {kinds.map(k => (
-                    <span key={k} className={cn("w-1.5 h-1.5 rounded-full", KIND_DOT[k])} />
+                <div className="flex justify-center">
+                  <span className={cn(
+                    "w-5 h-5 flex items-center justify-center rounded-full text-xs",
+                    isToday && "bg-primary text-primary-foreground font-bold",
+                  )}>{day}</span>
+                </div>
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  {shown.map((ev, i) => (
+                    <span
+                      key={`${ev.sourceId}-${ev.kind}-${i}`}
+                      className={cn("block truncate rounded px-1 text-[9px] leading-tight text-white", KIND_CHIP[ev.kind])}
+                    >
+                      {ev.title}
+                    </span>
                   ))}
-                </span>
+                  {extra > 0 && (
+                    <span className="text-[9px] leading-tight text-muted-foreground px-1">+{extra}</span>
+                  )}
+                </div>
               </button>
             );
           })}
@@ -92,7 +104,7 @@ export default function ScheduleCalendar({ events, year, month }: Props) {
       <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
         {(["charge", "statement", "due"] as const).map(k => (
           <span key={k} className="flex items-center gap-1">
-            <span className={cn("w-1.5 h-1.5 rounded-full", KIND_DOT[k])} />
+            <span className={cn("w-2.5 h-2.5 rounded-sm", KIND_CHIP[k])} />
             {KIND_LABEL[k]}
           </span>
         ))}

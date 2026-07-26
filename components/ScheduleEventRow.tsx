@@ -7,10 +7,10 @@ export const KIND_LABEL: Record<string, string> = { charge: "扣款", statement:
 export const CATEGORY_LABEL: Record<string, string> = { subscription: "訂閱", investment: "投資", expense: "固定支出" };
 export const REMINDER_LABEL: Record<string, string> = { charge: "扣款提醒", statement: "可繳費提醒", due: "到期提醒" };
 
-// 事件種類對應的圓點顏色（日曆格子用）。
-export const KIND_DOT: Record<string, string> = {
+// 事件種類對應的標籤底色（日曆格子的事件 chip 用，搭配白字）。
+export const KIND_CHIP: Record<string, string> = {
   charge: "bg-blue-500",
-  statement: "bg-amber-500",
+  statement: "bg-amber-600",
   due: "bg-rose-500",
 };
 
