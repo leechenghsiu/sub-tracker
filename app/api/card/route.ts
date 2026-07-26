@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       name: data.name,
       last4: data.last4 || '',
       statementDay: parseInt(data.statementDay, 10),
-      dueDay: parseInt(data.dueDay, 10),
+      dueDay: data.dueDay === '' || data.dueDay == null ? null : parseInt(data.dueDay, 10),
       color: data.color || '',
       note: data.note || '',
       payReminder: {

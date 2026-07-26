@@ -14,7 +14,7 @@ interface Props {
 }
 
 const emptyForm = {
-  name: "", last4: "", statementDay: "1", dueDay: "15", note: "",
+  name: "", last4: "", statementDay: "1", dueDay: "", note: "",
   payReminderEnabled: true,          // 結帳隔天提醒可繳費
   dueReminderEnabled: true,          // 繳費到期前提醒
   dueReminderDaysBefore: "3",
@@ -39,7 +39,7 @@ export default function CardManager({ cards, token, onRefresh, onUnauthorized }:
           dueDay: form.dueDay,
           note: form.note,
           payReminder: { enabled: form.payReminderEnabled, daysAfter: 1 },
-          dueReminder: { enabled: form.dueReminderEnabled, daysBefore: Number(form.dueReminderDaysBefore) || 0 },
+          dueReminder: { enabled: form.dueDay !== "" && form.dueReminderEnabled, daysBefore: Number(form.dueReminderDaysBefore) || 0 },
         }),
       });
       if (res.status === 401) { onUnauthorized(); return; }
@@ -75,7 +75,7 @@ export default function CardManager({ cards, token, onRefresh, onUnauthorized }:
               <CreditCard className="w-5 h-5 text-muted-foreground" />
               <div className="flex-1 min-w-0">
                 <div className="font-semibold truncate">{card.name}{card.last4 && ` ****${card.last4}`}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">結帳 {card.statementDay} 號 · 繳費截止 {card.dueDay} 號</div>
+                <div className="text-xs text-muted-foreground mt-0.5">結帳 {card.statementDay} 號{card.dueDay != null ? ` · 繳費截止 ${card.dueDay} 號` : ""}</div>
               </div>
               <button type="button" className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => handleDelete(card._id)} aria-label="刪除">
                 <Trash2 className="w-4 h-4 text-destructive" />
@@ -102,8 +102,8 @@ export default function CardManager({ cards, token, onRefresh, onUnauthorized }:
                 <Input type="number" min={1} max={31} value={form.statementDay} onChange={e => setForm(f => ({ ...f, statementDay: e.target.value }))} required />
               </div>
               <div className="flex-1">
-                <label className="block mb-1 text-sm font-medium">繳費截止日</label>
-                <Input type="number" min={1} max={31} value={form.dueDay} onChange={e => setForm(f => ({ ...f, dueDay: e.target.value }))} required />
+                <label className="block mb-1 text-sm font-medium">繳費截止日（選填）</label>
+                <Input type="number" min={1} max={31} placeholder="選填" value={form.dueDay} onChange={e => setForm(f => ({ ...f, dueDay: e.target.value }))} />
               </div>
             </div>
             <div className="space-y-3 rounded-md border p-3">
@@ -112,19 +112,21 @@ export default function CardManager({ cards, token, onRefresh, onUnauthorized }:
                 <Checkbox id="card-pay-reminder" checked={form.payReminderEnabled} onCheckedChange={v => setForm(f => ({ ...f, payReminderEnabled: !!v }))} />
                 <label htmlFor="card-pay-reminder" className="text-sm select-none cursor-pointer">結帳隔天提醒可繳費</label>
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <Checkbox id="card-due-reminder" checked={form.dueReminderEnabled} onCheckedChange={v => setForm(f => ({ ...f, dueReminderEnabled: !!v }))} />
-                  <label htmlFor="card-due-reminder" className="text-sm select-none cursor-pointer">繳費到期前提醒</label>
-                </div>
-                {form.dueReminderEnabled && (
-                  <div className="mt-2 flex items-center gap-2 pl-6">
-                    <span className="text-sm text-muted-foreground">提前</span>
-                    <Input type="number" min={0} className="w-20" value={form.dueReminderDaysBefore} onChange={e => setForm(f => ({ ...f, dueReminderDaysBefore: e.target.value }))} />
-                    <span className="text-sm text-muted-foreground">天</span>
+              {form.dueDay !== "" && (
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox id="card-due-reminder" checked={form.dueReminderEnabled} onCheckedChange={v => setForm(f => ({ ...f, dueReminderEnabled: !!v }))} />
+                    <label htmlFor="card-due-reminder" className="text-sm select-none cursor-pointer">繳費到期前提醒</label>
                   </div>
-                )}
-              </div>
+                  {form.dueReminderEnabled && (
+                    <div className="mt-2 flex items-center gap-2 pl-6">
+                      <span className="text-sm text-muted-foreground">提前</span>
+                      <Input type="number" min={0} className="w-20" value={form.dueReminderDaysBefore} onChange={e => setForm(f => ({ ...f, dueReminderDaysBefore: e.target.value }))} />
+                      <span className="text-sm text-muted-foreground">天</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div>
               <label className="block mb-1 text-sm font-medium">備註</label>

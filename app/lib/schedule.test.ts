@@ -102,6 +102,12 @@ describe('getMonthlyEvents', () => {
     expect(statement.reminderDate).toBeUndefined() // 舊卡無可繳費提醒
   })
 
+  it('未填繳費截止日時只產生結帳事件', () => {
+    const noDue: Card = { ...card, _id: 'c4', dueDay: null }
+    const events = getMonthlyEvents([], [noDue], 2026, 6)
+    expect(events.map(e => e.kind)).toEqual(['statement'])
+  })
+
   it('所有事件依日期升冪排序', () => {
     const events = getMonthlyEvents([sub], [card], 2026, 6)
     const times = events.map(e => e.date.getTime())

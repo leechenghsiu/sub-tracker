@@ -14,8 +14,8 @@ export type Card = {
   _id: string;
   name: string;
   last4?: string;
-  statementDay: number; // 每月幾號 1-31
-  dueDay: number;       // 每月幾號 1-31
+  statementDay: number;      // 每月幾號 1-31
+  dueDay?: number | null;    // 每月幾號 1-31；選填，未填為 null
   color?: string;
   note?: string;
   payReminder: PayReminder; // 結帳後可繳費提醒（結帳日 + daysAfter 天）

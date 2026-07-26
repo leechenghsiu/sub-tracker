@@ -78,17 +78,19 @@ export function getMonthlyEvents(
       reminderDate: pay.enabled ? shiftDays(statementDate, pay.daysAfter) : undefined,
       sourceId: card._id,
     })
-    // 繳費截止事件：到期前提醒（截止日前 daysBefore 天）
-    const dueDate = resolveDayInMonth(card.dueDay, year, month)
-    const due = getDueReminder(card)
-    events.push({
-      date: dueDate,
-      kind: 'due',
-      title: card.name,
-      cardName: card.name,
-      reminderDate: due.enabled ? shiftDays(dueDate, -due.daysBefore) : undefined,
-      sourceId: card._id,
-    })
+    // 繳費截止事件：到期前提醒（截止日前 daysBefore 天）。繳費截止日為選填，未填則不產生。
+    if (card.dueDay != null) {
+      const dueDate = resolveDayInMonth(card.dueDay, year, month)
+      const due = getDueReminder(card)
+      events.push({
+        date: dueDate,
+        kind: 'due',
+        title: card.name,
+        cardName: card.name,
+        reminderDate: due.enabled ? shiftDays(dueDate, -due.daysBefore) : undefined,
+        sourceId: card._id,
+      })
+    }
   }
 
   events.sort((a, b) => a.date.getTime() - b.date.getTime())

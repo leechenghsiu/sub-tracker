@@ -27,7 +27,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       if (key in data) update[key] = data[key]
     }
     if ('statementDay' in data) update.statementDay = parseInt(data.statementDay, 10)
-    if ('dueDay' in data) update.dueDay = parseInt(data.dueDay, 10)
+    if ('dueDay' in data) update.dueDay = data.dueDay === '' || data.dueDay == null ? null : parseInt(data.dueDay, 10)
     if ('payReminder' in data) {
       update.payReminder = {
         enabled: !!data.payReminder?.enabled,
