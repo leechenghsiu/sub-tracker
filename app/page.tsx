@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Subscription } from "../components/types";
+import { Subscription, Card as CardType } from "../components/types";
 import EmptyState from "../components/EmptyState";
 import OverviewTabs from "../components/OverviewTabs";
 import SplitBillList from "../components/SplitBillList";
@@ -166,6 +166,8 @@ export default function Home() {
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- consumed by CardManager once it is mounted in Task 8
+  const [cards, setCards] = useState<CardType[]>([]);
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
   const [form, setForm] = useState({
@@ -197,6 +199,7 @@ export default function Home() {
     if (savedToken) {
       setToken(savedToken);
       fetchSubscriptions(savedToken);
+      fetchCards(savedToken);
     }
     setIsLoading(false);
     
@@ -231,6 +234,7 @@ export default function Home() {
         setToken(data.token);
         localStorage.setItem("token", data.token); // 儲存 token
         fetchSubscriptions(data.token);
+        fetchCards(data.token);
       } else {
         setError(data.error || "登入失敗");
       }
@@ -266,6 +270,15 @@ export default function Home() {
     } finally {
       if (showLoading) setDataLoading(false);
     }
+  }
+
+  // 取得信用卡資料
+  async function fetchCards(token: string) {
+    try {
+      const res = await fetch("/api/card", { headers: { Authorization: `Bearer ${token}` } });
+      if (res.status === 401) { handleLogout(); return; }
+      if (res.ok) setCards(await res.json());
+    } catch {}
   }
 
   // 新增訂閱
