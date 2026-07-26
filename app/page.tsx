@@ -21,6 +21,7 @@ import EmptyState from "../components/EmptyState";
 import OverviewTabs from "../components/OverviewTabs";
 import SplitBillList from "../components/SplitBillList";
 import SubscriptionSkeleton from "../components/SubscriptionSkeleton";
+import ScheduleView from "../components/ScheduleView";
 import Image from "next/image";
 import { Montserrat } from "next/font/google";
 const montserrat = Montserrat({ subsets: ["latin"], weight: "700" });
@@ -166,7 +167,6 @@ export default function Home() {
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- consumed by CardManager once it is mounted in Task 8
   const [cards, setCards] = useState<CardType[]>([]);
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
@@ -191,7 +191,7 @@ export default function Home() {
   const [date, setDate] = useState<Date | undefined>(form.billingDate ? new Date(form.billingDate) : undefined);
   const [open, setOpen] = useState(false);
   const [tabMode, setTabMode] = useState<'monthly' | 'halfyear' | 'yearly'>('monthly');
-  const [mainTab, setMainTab] = useState<'subscriptions' | 'splitbills'>('subscriptions');
+  const [mainTab, setMainTab] = useState<'schedule' | 'subscriptions' | 'splitbills'>('subscriptions');
 
   // 頁面載入時自動讀取 localStorage
   useEffect(() => {
@@ -393,22 +393,25 @@ export default function Home() {
       <Navbar onLogout={handleLogout} token={token} />
       {/* 置頂區塊 */}
       <div className="max-w-xl mx-auto px-4 mt-[68px] pt-4 space-y-3">
-        <Tabs value={mainTab} onValueChange={v => setMainTab(v as 'subscriptions' | 'splitbills')} className="w-full">
-          <TabsList className="w-full grid grid-cols-2">
+        <Tabs value={mainTab} onValueChange={v => setMainTab(v as 'schedule' | 'subscriptions' | 'splitbills')} className="w-full">
+          <TabsList className="w-full grid grid-cols-3">
+            <TabsTrigger value="schedule"><CalendarIcon className="w-4 h-4 mr-1.5" />日程</TabsTrigger>
             <TabsTrigger value="subscriptions"><ListChecks className="w-4 h-4 mr-1.5" />個人訂閱</TabsTrigger>
             <TabsTrigger value="splitbills"><Users className="w-4 h-4 mr-1.5" />代墊項目</TabsTrigger>
           </TabsList>
         </Tabs>
-        <div className="flex justify-end">
-          <Button variant="default" className="flex items-center gap-2" onClick={() => {
-            if (mainTab === 'splitbills') {
-              setForm(f => ({ ...f, isAdvance: true }));
-            } else {
-              setForm(f => ({ ...f, isAdvance: false }));
-            }
-            setOpen(true);
-          }}><Plus className="w-4 h-4" />新增{mainTab === 'splitbills' ? '代墊' : '訂閱'}</Button>
-        </div>
+        {mainTab !== 'schedule' && (
+          <div className="flex justify-end">
+            <Button variant="default" className="flex items-center gap-2" onClick={() => {
+              if (mainTab === 'splitbills') {
+                setForm(f => ({ ...f, isAdvance: true }));
+              } else {
+                setForm(f => ({ ...f, isAdvance: false }));
+              }
+              setOpen(true);
+            }}><Plus className="w-4 h-4" />新增{mainTab === 'splitbills' ? '代墊' : '訂閱'}</Button>
+          </div>
+        )}
       </div>
       {/* Dialog 不包在主內容區 */}
         <Dialog open={open} onOpenChange={v => {
@@ -586,6 +589,8 @@ export default function Home() {
       <div className="max-w-xl mx-auto p-4 flex-1 flex flex-col">
         {dataLoading ? (
           <SubscriptionSkeleton />
+        ) : mainTab === 'schedule' ? (
+          <ScheduleView subscriptions={subscriptions} cards={cards} token={token!} onRefreshCards={() => fetchCards(token!)} onUnauthorized={handleLogout} />
         ) : mainTab === 'subscriptions' ? (
           subscriptions.length === 0 ? (
             <EmptyState onAdd={() => setOpen(true)} />
