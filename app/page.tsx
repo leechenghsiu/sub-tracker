@@ -16,11 +16,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Subscription } from "../components/types";
+import { Subscription, Card as CardType } from "../components/types";
 import EmptyState from "../components/EmptyState";
 import OverviewTabs from "../components/OverviewTabs";
 import SplitBillList from "../components/SplitBillList";
 import SubscriptionSkeleton from "../components/SubscriptionSkeleton";
+import ScheduleView from "../components/ScheduleView";
 import Image from "next/image";
 import { Montserrat } from "next/font/google";
 const montserrat = Montserrat({ subsets: ["latin"], weight: "700" });
@@ -166,6 +167,7 @@ export default function Home() {
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [cards, setCards] = useState<CardType[]>([]);
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
   const [form, setForm] = useState({
@@ -177,7 +179,10 @@ export default function Home() {
     note: "",
     isAdvance: false,
     selfRatio: "1",
-    advanceRatio: "1"
+    advanceRatio: "1",
+    category: "subscription",
+    reminderEnabled: false,
+    reminderDaysBefore: "1"
   });
   const [memberTags, setMemberTags] = useState<string[]>([]);
   const [memberInput, setMemberInput] = useState("");
@@ -186,7 +191,7 @@ export default function Home() {
   const [date, setDate] = useState<Date | undefined>(form.billingDate ? new Date(form.billingDate) : undefined);
   const [open, setOpen] = useState(false);
   const [tabMode, setTabMode] = useState<'monthly' | 'halfyear' | 'yearly'>('monthly');
-  const [mainTab, setMainTab] = useState<'subscriptions' | 'splitbills'>('subscriptions');
+  const [mainTab, setMainTab] = useState<'schedule' | 'subscriptions' | 'splitbills'>('schedule');
 
   // 頁面載入時自動讀取 localStorage
   useEffect(() => {
@@ -194,6 +199,7 @@ export default function Home() {
     if (savedToken) {
       setToken(savedToken);
       fetchSubscriptions(savedToken);
+      fetchCards(savedToken);
     }
     setIsLoading(false);
     
@@ -228,6 +234,7 @@ export default function Home() {
         setToken(data.token);
         localStorage.setItem("token", data.token); // 儲存 token
         fetchSubscriptions(data.token);
+        fetchCards(data.token);
       } else {
         setError(data.error || "登入失敗");
       }
@@ -265,18 +272,33 @@ export default function Home() {
     }
   }
 
+  // 取得信用卡資料
+  async function fetchCards(token: string) {
+    try {
+      const res = await fetch("/api/card", { headers: { Authorization: `Bearer ${token}` } });
+      if (res.status === 401) { handleLogout(); return; }
+      if (res.ok) setCards(await res.json());
+    } catch {}
+  }
+
   // 新增訂閱
   async function handleAdd(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     const now = format(new Date(), "yyyy-MM");
     try {
+      const { reminderEnabled, reminderDaysBefore, ...formRest } = form;
       const body: Record<string, unknown> = {
-        ...form,
+        ...formRest,
         price: form.price === "" ? 0 : parseFloat(form.price),
         selfRatio: form.selfRatio === "" ? 1 : Number(form.selfRatio),
         advanceRatio: form.advanceRatio === "" ? 1 : Number(form.advanceRatio),
         billingDate: new Date(form.billingDate),
+        category: form.category,
+        reminder: {
+          enabled: reminderEnabled,
+          daysBefore: Number(reminderDaysBefore) || 1,
+        },
       };
       if (form.isAdvance && memberTags.length > 0) {
         body.perPersonAmount = parseFloat(perPersonAmount) || 0;
@@ -295,7 +317,7 @@ export default function Home() {
       if (res.status === 401) { handleLogout(); return; }
       if (res.ok) {
         fetchSubscriptions(token!);
-        setForm({ name: "", price: "", currency: "TWD", billingDate: "", cycle: "monthly", note: "", isAdvance: false, selfRatio: "1", advanceRatio: "1" });
+        setForm({ name: "", price: "", currency: "TWD", billingDate: "", cycle: "monthly", note: "", isAdvance: false, selfRatio: "1", advanceRatio: "1", category: "subscription", reminderEnabled: false, reminderDaysBefore: "1" });
         setMemberTags([]);
         setMemberInput("");
         setPerPersonAmount("");
@@ -371,28 +393,31 @@ export default function Home() {
       <Navbar onLogout={handleLogout} token={token} />
       {/* 置頂區塊 */}
       <div className="max-w-xl mx-auto px-4 mt-[68px] pt-4 space-y-3">
-        <Tabs value={mainTab} onValueChange={v => setMainTab(v as 'subscriptions' | 'splitbills')} className="w-full">
-          <TabsList className="w-full grid grid-cols-2">
+        <Tabs value={mainTab} onValueChange={v => setMainTab(v as 'schedule' | 'subscriptions' | 'splitbills')} className="w-full">
+          <TabsList className="w-full grid grid-cols-3">
+            <TabsTrigger value="schedule"><CalendarIcon className="w-4 h-4 mr-1.5" />日程</TabsTrigger>
             <TabsTrigger value="subscriptions"><ListChecks className="w-4 h-4 mr-1.5" />個人訂閱</TabsTrigger>
             <TabsTrigger value="splitbills"><Users className="w-4 h-4 mr-1.5" />代墊項目</TabsTrigger>
           </TabsList>
         </Tabs>
-        <div className="flex justify-end">
-          <Button variant="default" className="flex items-center gap-2" onClick={() => {
-            if (mainTab === 'splitbills') {
-              setForm(f => ({ ...f, isAdvance: true }));
-            } else {
-              setForm(f => ({ ...f, isAdvance: false }));
-            }
-            setOpen(true);
-          }}><Plus className="w-4 h-4" />新增{mainTab === 'splitbills' ? '代墊' : '訂閱'}</Button>
-        </div>
+        {mainTab !== 'schedule' && (
+          <div className="flex justify-end">
+            <Button variant="default" className="flex items-center gap-2" onClick={() => {
+              if (mainTab === 'splitbills') {
+                setForm(f => ({ ...f, isAdvance: true }));
+              } else {
+                setForm(f => ({ ...f, isAdvance: false }));
+              }
+              setOpen(true);
+            }}><Plus className="w-4 h-4" />新增{mainTab === 'splitbills' ? '代墊' : '訂閱'}</Button>
+          </div>
+        )}
       </div>
       {/* Dialog 不包在主內容區 */}
         <Dialog open={open} onOpenChange={v => {
           setOpen(v);
           if (!v) {
-            setForm({ name: "", price: "", currency: "TWD", billingDate: "", cycle: "monthly", note: "", isAdvance: false, selfRatio: "1", advanceRatio: "1" });
+            setForm({ name: "", price: "", currency: "TWD", billingDate: "", cycle: "monthly", note: "", isAdvance: false, selfRatio: "1", advanceRatio: "1", category: "subscription", reminderEnabled: false, reminderDaysBefore: "1" });
             setMemberTags([]);
             setMemberInput("");
             setPerPersonAmount("");
@@ -523,6 +548,34 @@ export default function Home() {
                   </Tabs>
                 </div>
                 <div>
+                  <label className="block mb-1 text-sm font-medium">分類</label>
+                  <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="選擇分類" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="subscription">訂閱</SelectItem>
+                      <SelectItem value="investment">投資</SelectItem>
+                      <SelectItem value="expense">固定支出</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox id="reminder" checked={form.reminderEnabled} onCheckedChange={v => setForm(f => ({ ...f, reminderEnabled: !!v }))} />
+                    <label htmlFor="reminder" className="text-sm select-none cursor-pointer">到期前提醒</label>
+                  </div>
+                  {form.reminderEnabled && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">提前</span>
+                      <Input type="number" inputMode="numeric" min={0} className="w-20"
+                        value={form.reminderDaysBefore}
+                        onChange={e => setForm(f => ({ ...f, reminderDaysBefore: e.target.value }))} />
+                      <span className="text-sm text-muted-foreground">天</span>
+                    </div>
+                  )}
+                </div>
+                <div>
                   <label className="block mb-1 text-sm font-medium">備註</label>
                   <Input placeholder="請輸入備註 (可選)" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
                 </div>
@@ -536,6 +589,8 @@ export default function Home() {
       <div className="max-w-xl mx-auto p-4 flex-1 flex flex-col">
         {dataLoading ? (
           <SubscriptionSkeleton />
+        ) : mainTab === 'schedule' ? (
+          <ScheduleView subscriptions={subscriptions} cards={cards} token={token!} onRefreshCards={() => fetchCards(token!)} onUnauthorized={handleLogout} />
         ) : mainTab === 'subscriptions' ? (
           subscriptions.length === 0 ? (
             <EmptyState onAdd={() => setOpen(true)} />
