@@ -19,7 +19,7 @@ interface Props {
 export default function ScheduleView({ subscriptions, cards, token, onRefreshCards, onUnauthorized }: Props) {
   const now = new Date();
   const [ym, setYm] = useState({ year: now.getFullYear(), month: now.getMonth() });
-  const [view, setView] = useState<"list" | "calendar">("list");
+  const [view, setView] = useState<"list" | "calendar">("calendar");
 
   const events = getMonthlyEvents(subscriptions, cards, ym.year, ym.month);
 
@@ -40,8 +40,8 @@ export default function ScheduleView({ subscriptions, cards, token, onRefreshCar
 
       <Tabs value={view} onValueChange={v => setView(v as "list" | "calendar")} className="w-full">
         <TabsList className="w-full grid grid-cols-2">
-          <TabsTrigger value="list"><List className="w-4 h-4 mr-1.5" />清單</TabsTrigger>
           <TabsTrigger value="calendar"><CalendarDays className="w-4 h-4 mr-1.5" />日曆</TabsTrigger>
+          <TabsTrigger value="list"><List className="w-4 h-4 mr-1.5" />清單</TabsTrigger>
         </TabsList>
       </Tabs>
 

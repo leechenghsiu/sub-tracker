@@ -191,7 +191,7 @@ export default function Home() {
   const [date, setDate] = useState<Date | undefined>(form.billingDate ? new Date(form.billingDate) : undefined);
   const [open, setOpen] = useState(false);
   const [tabMode, setTabMode] = useState<'monthly' | 'halfyear' | 'yearly'>('monthly');
-  const [mainTab, setMainTab] = useState<'schedule' | 'subscriptions' | 'splitbills'>('subscriptions');
+  const [mainTab, setMainTab] = useState<'schedule' | 'subscriptions' | 'splitbills'>('schedule');
 
   // 頁面載入時自動讀取 localStorage
   useEffect(() => {
