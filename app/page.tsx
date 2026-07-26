@@ -274,16 +274,17 @@ export default function Home() {
     setLoading(true);
     const now = format(new Date(), "yyyy-MM");
     try {
+      const { reminderEnabled, reminderDaysBefore, ...formRest } = form;
       const body: Record<string, unknown> = {
-        ...form,
+        ...formRest,
         price: form.price === "" ? 0 : parseFloat(form.price),
         selfRatio: form.selfRatio === "" ? 1 : Number(form.selfRatio),
         advanceRatio: form.advanceRatio === "" ? 1 : Number(form.advanceRatio),
         billingDate: new Date(form.billingDate),
         category: form.category,
         reminder: {
-          enabled: form.reminderEnabled,
-          daysBefore: Number(form.reminderDaysBefore) || 1,
+          enabled: reminderEnabled,
+          daysBefore: Number(reminderDaysBefore) || 1,
         },
       };
       if (form.isAdvance && memberTags.length > 0) {
