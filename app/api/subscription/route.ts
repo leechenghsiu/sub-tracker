@@ -53,7 +53,12 @@ export async function GET(req: NextRequest) {
       const myAmount = denom > 0 ? total * (self / denom) : 0;
       const displayAmount = convert(myAmount, sub.cycle, mode);
       const twdAmount = (rates[sub.currency] || 1) * displayAmount;
-      return { ...sub, twdAmount };
+      return {
+        ...sub,
+        twdAmount,
+        category: sub.category ?? 'subscription',
+        reminder: sub.reminder ?? { enabled: false, daysBefore: 1 },
+      };
     });
     // 預設金額排序（desc）
     withTWD.sort((a, b) => b.twdAmount - a.twdAmount);
@@ -73,6 +78,11 @@ export async function POST(req: NextRequest) {
       price: parseFloat(data.price),
       billingDate: new Date(data.billingDate),
       createdAt: new Date(),
+      category: data.category || 'subscription',
+      reminder: {
+        enabled: !!data.reminder?.enabled,
+        daysBefore: Number(data.reminder?.daysBefore ?? 1),
+      },
       deletedAt: null
     }
     const result = await db.collection('subscription').insertOne(doc)
