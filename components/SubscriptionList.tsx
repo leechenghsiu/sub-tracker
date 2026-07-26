@@ -366,6 +366,19 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
                   <Input value={editMode && form ? form.cycle : selected.cycle} onChange={e => editMode && form && setForm({ ...form, cycle: e.target.value })} disabled={!editMode} className="w-full" />
                 </div>
                 <div>
+                  <label className="block mb-1 text-sm font-medium">分類</label>
+                  <select
+                    className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm disabled:opacity-60"
+                    value={editMode && form ? (form.category ?? 'subscription') : (selected.category ?? 'subscription')}
+                    onChange={e => editMode && form && setForm({ ...form, category: e.target.value as Subscription['category'] })}
+                    disabled={!editMode}
+                  >
+                    <option value="subscription">訂閱</option>
+                    <option value="investment">投資</option>
+                    <option value="expense">固定支出</option>
+                  </select>
+                </div>
+                <div>
                   <label className="block mb-1 text-sm font-medium">備註</label>
                   <Input value={editMode && form ? form.note || "" : selected.note || ""} onChange={e => editMode && form && setForm({ ...form, note: e.target.value })} disabled={!editMode} placeholder="備註 (可選)" />
                 </div>

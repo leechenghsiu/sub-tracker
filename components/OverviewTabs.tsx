@@ -13,7 +13,29 @@ interface OverviewTabsProps {
   onUnauthorized: () => void;
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  subscription: '訂閱',
+  investment: '投資',
+  expense: '固定支出',
+};
+const CATEGORY_ORDER = ['subscription', 'investment', 'expense'] as const;
+
 export default function OverviewTabs({ subscriptions, tabMode, setTabMode, token, onRefresh, onUnauthorized }: OverviewTabsProps) {
+  const renderByCategory = (mode: 'monthly' | 'halfyear' | 'yearly') => (
+    <div className="space-y-6">
+      {CATEGORY_ORDER.map(cat => {
+        const list = subscriptions.filter(s => (s.category ?? 'subscription') === cat);
+        if (list.length === 0) return null;
+        return (
+          <div key={cat}>
+            <div className="text-sm font-semibold text-muted-foreground mb-2">{CATEGORY_LABELS[cat]}</div>
+            <SubscriptionList subscriptions={list} mode={mode} token={token} onRefresh={onRefresh} onUnauthorized={onUnauthorized} />
+          </div>
+        );
+      })}
+    </div>
+  );
+
   return (
     <Tabs defaultValue="monthly" className="w-full" onValueChange={v => setTabMode(v as 'monthly'|'halfyear'|'yearly')}>
       <div className="mb-4">
@@ -27,13 +49,13 @@ export default function OverviewTabs({ subscriptions, tabMode, setTabMode, token
         </div>
       </div>
       <TabsContent value="monthly">
-        <SubscriptionList subscriptions={subscriptions} mode="monthly" token={token} onRefresh={onRefresh} onUnauthorized={onUnauthorized} />
+        {renderByCategory('monthly')}
       </TabsContent>
       <TabsContent value="halfyear">
-        <SubscriptionList subscriptions={subscriptions} mode="halfyear" token={token} onRefresh={onRefresh} onUnauthorized={onUnauthorized} />
+        {renderByCategory('halfyear')}
       </TabsContent>
       <TabsContent value="yearly">
-        <SubscriptionList subscriptions={subscriptions} mode="yearly" token={token} onRefresh={onRefresh} onUnauthorized={onUnauthorized} />
+        {renderByCategory('yearly')}
       </TabsContent>
     </Tabs>
   );
