@@ -16,6 +16,11 @@ interface Props {
 
 const KIND_LABEL: Record<string, string> = { charge: "扣款", statement: "結帳", due: "繳費截止" };
 const CATEGORY_LABEL: Record<string, string> = { subscription: "訂閱", investment: "投資", expense: "固定支出" };
+const REMINDER_LABEL: Record<string, string> = { charge: "扣款提醒", statement: "可繳費提醒", due: "到期提醒" };
+
+function formatMD(d: Date): string {
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
 
 export default function ScheduleView({ subscriptions, cards, token, onRefreshCards, onUnauthorized }: Props) {
   const now = new Date();
@@ -56,7 +61,7 @@ export default function ScheduleView({ subscriptions, cards, token, onRefreshCar
                 <div className="text-xs text-muted-foreground mt-0.5">
                   {KIND_LABEL[ev.kind]}
                   {ev.category && ` · ${CATEGORY_LABEL[ev.category] ?? ""}`}
-                  {ev.reminder?.enabled && ` · 提前 ${ev.reminder.daysBefore} 天提醒`}
+                  {ev.reminderDate && ` · 🔔 ${formatMD(ev.reminderDate)} ${REMINDER_LABEL[ev.kind]}`}
                 </div>
               </div>
               {ev.kind === "charge" && ev.amount != null && (

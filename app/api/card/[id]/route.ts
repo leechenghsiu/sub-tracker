@@ -28,10 +28,16 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     }
     if ('statementDay' in data) update.statementDay = parseInt(data.statementDay, 10)
     if ('dueDay' in data) update.dueDay = parseInt(data.dueDay, 10)
-    if ('reminder' in data) {
-      update.reminder = {
-        enabled: !!data.reminder?.enabled,
-        daysBefore: Number(data.reminder?.daysBefore ?? 1),
+    if ('payReminder' in data) {
+      update.payReminder = {
+        enabled: !!data.payReminder?.enabled,
+        daysAfter: Number(data.payReminder?.daysAfter ?? 1),
+      }
+    }
+    if ('dueReminder' in data) {
+      update.dueReminder = {
+        enabled: !!data.dueReminder?.enabled,
+        daysBefore: Number(data.dueReminder?.daysBefore ?? 3),
       }
     }
     await db.collection('card').updateOne({ _id: new ObjectId(id) }, { $set: update })

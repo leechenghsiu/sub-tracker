@@ -13,7 +13,12 @@ interface Props {
   onUnauthorized: () => void;
 }
 
-const emptyForm = { name: "", last4: "", statementDay: "1", dueDay: "15", note: "", reminderEnabled: false, reminderDaysBefore: "3" };
+const emptyForm = {
+  name: "", last4: "", statementDay: "1", dueDay: "15", note: "",
+  payReminderEnabled: true,          // 結帳隔天提醒可繳費
+  dueReminderEnabled: true,          // 繳費到期前提醒
+  dueReminderDaysBefore: "3",
+};
 
 export default function CardManager({ cards, token, onRefresh, onUnauthorized }: Props) {
   const [open, setOpen] = useState(false);
@@ -33,7 +38,8 @@ export default function CardManager({ cards, token, onRefresh, onUnauthorized }:
           statementDay: form.statementDay,
           dueDay: form.dueDay,
           note: form.note,
-          reminder: { enabled: form.reminderEnabled, daysBefore: Number(form.reminderDaysBefore) || 1 },
+          payReminder: { enabled: form.payReminderEnabled, daysAfter: 1 },
+          dueReminder: { enabled: form.dueReminderEnabled, daysBefore: Number(form.dueReminderDaysBefore) || 0 },
         }),
       });
       if (res.status === 401) { onUnauthorized(); return; }
@@ -100,18 +106,25 @@ export default function CardManager({ cards, token, onRefresh, onUnauthorized }:
                 <Input type="number" min={1} max={31} value={form.dueDay} onChange={e => setForm(f => ({ ...f, dueDay: e.target.value }))} required />
               </div>
             </div>
-            <div>
+            <div className="space-y-3 rounded-md border p-3">
+              <div className="text-sm font-medium">提醒</div>
               <div className="flex items-center gap-2">
-                <Checkbox id="card-reminder" checked={form.reminderEnabled} onCheckedChange={v => setForm(f => ({ ...f, reminderEnabled: !!v }))} />
-                <label htmlFor="card-reminder" className="text-sm select-none cursor-pointer">到期前提醒</label>
+                <Checkbox id="card-pay-reminder" checked={form.payReminderEnabled} onCheckedChange={v => setForm(f => ({ ...f, payReminderEnabled: !!v }))} />
+                <label htmlFor="card-pay-reminder" className="text-sm select-none cursor-pointer">結帳隔天提醒可繳費</label>
               </div>
-              {form.reminderEnabled && (
-                <div className="mt-2 flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">提前</span>
-                  <Input type="number" min={0} className="w-20" value={form.reminderDaysBefore} onChange={e => setForm(f => ({ ...f, reminderDaysBefore: e.target.value }))} />
-                  <span className="text-sm text-muted-foreground">天</span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <Checkbox id="card-due-reminder" checked={form.dueReminderEnabled} onCheckedChange={v => setForm(f => ({ ...f, dueReminderEnabled: !!v }))} />
+                  <label htmlFor="card-due-reminder" className="text-sm select-none cursor-pointer">繳費到期前提醒</label>
                 </div>
-              )}
+                {form.dueReminderEnabled && (
+                  <div className="mt-2 flex items-center gap-2 pl-6">
+                    <span className="text-sm text-muted-foreground">提前</span>
+                    <Input type="number" min={0} className="w-20" value={form.dueReminderDaysBefore} onChange={e => setForm(f => ({ ...f, dueReminderDaysBefore: e.target.value }))} />
+                    <span className="text-sm text-muted-foreground">天</span>
+                  </div>
+                )}
+              </div>
             </div>
             <div>
               <label className="block mb-1 text-sm font-medium">備註</label>
