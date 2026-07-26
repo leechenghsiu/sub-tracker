@@ -177,7 +177,10 @@ export default function Home() {
     note: "",
     isAdvance: false,
     selfRatio: "1",
-    advanceRatio: "1"
+    advanceRatio: "1",
+    category: "subscription",
+    reminderEnabled: false,
+    reminderDaysBefore: "1"
   });
   const [memberTags, setMemberTags] = useState<string[]>([]);
   const [memberInput, setMemberInput] = useState("");
@@ -277,6 +280,11 @@ export default function Home() {
         selfRatio: form.selfRatio === "" ? 1 : Number(form.selfRatio),
         advanceRatio: form.advanceRatio === "" ? 1 : Number(form.advanceRatio),
         billingDate: new Date(form.billingDate),
+        category: form.category,
+        reminder: {
+          enabled: form.reminderEnabled,
+          daysBefore: Number(form.reminderDaysBefore) || 1,
+        },
       };
       if (form.isAdvance && memberTags.length > 0) {
         body.perPersonAmount = parseFloat(perPersonAmount) || 0;
@@ -295,7 +303,7 @@ export default function Home() {
       if (res.status === 401) { handleLogout(); return; }
       if (res.ok) {
         fetchSubscriptions(token!);
-        setForm({ name: "", price: "", currency: "TWD", billingDate: "", cycle: "monthly", note: "", isAdvance: false, selfRatio: "1", advanceRatio: "1" });
+        setForm({ name: "", price: "", currency: "TWD", billingDate: "", cycle: "monthly", note: "", isAdvance: false, selfRatio: "1", advanceRatio: "1", category: "subscription", reminderEnabled: false, reminderDaysBefore: "1" });
         setMemberTags([]);
         setMemberInput("");
         setPerPersonAmount("");
@@ -392,7 +400,7 @@ export default function Home() {
         <Dialog open={open} onOpenChange={v => {
           setOpen(v);
           if (!v) {
-            setForm({ name: "", price: "", currency: "TWD", billingDate: "", cycle: "monthly", note: "", isAdvance: false, selfRatio: "1", advanceRatio: "1" });
+            setForm({ name: "", price: "", currency: "TWD", billingDate: "", cycle: "monthly", note: "", isAdvance: false, selfRatio: "1", advanceRatio: "1", category: "subscription", reminderEnabled: false, reminderDaysBefore: "1" });
             setMemberTags([]);
             setMemberInput("");
             setPerPersonAmount("");
@@ -521,6 +529,34 @@ export default function Home() {
                       <TabsTrigger value="yearly">每年</TabsTrigger>
                     </TabsList>
                   </Tabs>
+                </div>
+                <div>
+                  <label className="block mb-1 text-sm font-medium">分類</label>
+                  <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="選擇分類" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="subscription">訂閱</SelectItem>
+                      <SelectItem value="investment">投資</SelectItem>
+                      <SelectItem value="expense">固定支出</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox id="reminder" checked={form.reminderEnabled} onCheckedChange={v => setForm(f => ({ ...f, reminderEnabled: !!v }))} />
+                    <label htmlFor="reminder" className="text-sm select-none cursor-pointer">到期前提醒</label>
+                  </div>
+                  {form.reminderEnabled && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">提前</span>
+                      <Input type="number" inputMode="numeric" min={0} className="w-20"
+                        value={form.reminderDaysBefore}
+                        onChange={e => setForm(f => ({ ...f, reminderDaysBefore: e.target.value }))} />
+                      <span className="text-sm text-muted-foreground">天</span>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block mb-1 text-sm font-medium">備註</label>
