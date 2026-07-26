@@ -69,7 +69,7 @@ export default function CardManager({ cards, token, onRefresh, onUnauthorized }:
               <CreditCard className="w-5 h-5 text-muted-foreground" />
               <div className="flex-1 min-w-0">
                 <div className="font-semibold truncate">{card.name}{card.last4 && ` ****${card.last4}`}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">結帳 {card.statementDay} 號 · 繳費 {card.dueDay} 號</div>
+                <div className="text-xs text-muted-foreground mt-0.5">結帳 {card.statementDay} 號 · 繳費截止 {card.dueDay} 號</div>
               </div>
               <button type="button" className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => handleDelete(card._id)} aria-label="刪除">
                 <Trash2 className="w-4 h-4 text-destructive" />
@@ -96,7 +96,7 @@ export default function CardManager({ cards, token, onRefresh, onUnauthorized }:
                 <Input type="number" min={1} max={31} value={form.statementDay} onChange={e => setForm(f => ({ ...f, statementDay: e.target.value }))} required />
               </div>
               <div className="flex-1">
-                <label className="block mb-1 text-sm font-medium">繳費日</label>
+                <label className="block mb-1 text-sm font-medium">繳費截止日</label>
                 <Input type="number" min={1} max={31} value={form.dueDay} onChange={e => setForm(f => ({ ...f, dueDay: e.target.value }))} required />
               </div>
             </div>

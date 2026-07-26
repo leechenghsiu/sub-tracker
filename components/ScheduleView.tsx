@@ -14,7 +14,7 @@ interface Props {
   onUnauthorized: () => void;
 }
 
-const KIND_LABEL: Record<string, string> = { charge: "扣款", statement: "結帳", due: "繳費" };
+const KIND_LABEL: Record<string, string> = { charge: "扣款", statement: "結帳", due: "繳費截止" };
 const CATEGORY_LABEL: Record<string, string> = { subscription: "訂閱", investment: "投資", expense: "固定支出" };
 
 export default function ScheduleView({ subscriptions, cards, token, onRefreshCards, onUnauthorized }: Props) {
