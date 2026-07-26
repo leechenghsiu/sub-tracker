@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { Subscription, Card as CardType } from "./types";
 import { getMonthlyEvents } from "@/app/lib/schedule";
-import { formatNumberWithCommas } from "@/lib/utils";
 import CardManager from "./CardManager";
+import ScheduleCalendar from "./ScheduleCalendar";
+import { EventRow } from "./ScheduleEventRow";
 import { Button } from "./ui/button";
-import { ChevronLeft, ChevronRight, Wallet, CreditCard, Receipt } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
+import { ChevronLeft, ChevronRight, List, CalendarDays } from "lucide-react";
 
 interface Props {
   subscriptions: Subscription[];
@@ -14,17 +16,10 @@ interface Props {
   onUnauthorized: () => void;
 }
 
-const KIND_LABEL: Record<string, string> = { charge: "扣款", statement: "結帳", due: "繳費截止" };
-const CATEGORY_LABEL: Record<string, string> = { subscription: "訂閱", investment: "投資", expense: "固定支出" };
-const REMINDER_LABEL: Record<string, string> = { charge: "扣款提醒", statement: "可繳費提醒", due: "到期提醒" };
-
-function formatMD(d: Date): string {
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
-
 export default function ScheduleView({ subscriptions, cards, token, onRefreshCards, onUnauthorized }: Props) {
   const now = new Date();
   const [ym, setYm] = useState({ year: now.getFullYear(), month: now.getMonth() });
+  const [view, setView] = useState<"list" | "calendar">("list");
 
   const events = getMonthlyEvents(subscriptions, cards, ym.year, ym.month);
 
@@ -36,38 +31,28 @@ export default function ScheduleView({ subscriptions, cards, token, onRefreshCar
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <Button variant="ghost" size="icon" onClick={() => shiftMonth(-1)} aria-label="上個月"><ChevronLeft className="w-5 h-5" /></Button>
         <div className="font-semibold">{ym.year} 年 {ym.month + 1} 月</div>
         <Button variant="ghost" size="icon" onClick={() => shiftMonth(1)} aria-label="下個月"><ChevronRight className="w-5 h-5" /></Button>
       </div>
 
-      {events.length === 0 ? (
+      <Tabs value={view} onValueChange={v => setView(v as "list" | "calendar")} className="w-full">
+        <TabsList className="w-full grid grid-cols-2">
+          <TabsTrigger value="list"><List className="w-4 h-4 mr-1.5" />清單</TabsTrigger>
+          <TabsTrigger value="calendar"><CalendarDays className="w-4 h-4 mr-1.5" />日曆</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {view === "calendar" ? (
+        <ScheduleCalendar events={events} year={ym.year} month={ym.month} />
+      ) : events.length === 0 ? (
         <div className="text-sm text-muted-foreground py-6 text-center">本月沒有排定的財務事件</div>
       ) : (
         <div className="rounded-lg border divide-y bg-card">
           {events.map((ev, i) => (
-            <div key={`${ev.sourceId}-${ev.kind}-${i}`} className="flex items-center px-4 py-3 gap-3">
-              <div className="w-10 text-center">
-                <div className="text-lg font-bold leading-none">{ev.date.getDate()}</div>
-                <div className="text-[10px] text-muted-foreground">{ev.date.getMonth() + 1}月</div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold truncate flex items-center gap-1.5">
-                  {ev.kind === "charge" ? <Wallet className="w-4 h-4 text-muted-foreground" /> : ev.kind === "statement" ? <CreditCard className="w-4 h-4 text-muted-foreground" /> : <Receipt className="w-4 h-4 text-muted-foreground" />}
-                  {ev.title}
-                </div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {KIND_LABEL[ev.kind]}
-                  {ev.category && ` · ${CATEGORY_LABEL[ev.category] ?? ""}`}
-                  {ev.reminderDate && ` · 🔔 ${formatMD(ev.reminderDate)} ${REMINDER_LABEL[ev.kind]}`}
-                </div>
-              </div>
-              {ev.kind === "charge" && ev.amount != null && (
-                <div className="text-base font-bold whitespace-nowrap">${formatNumberWithCommas(Math.floor(ev.amount))} {ev.currency}</div>
-              )}
-            </div>
+            <EventRow key={`${ev.sourceId}-${ev.kind}-${i}`} ev={ev} />
           ))}
         </div>
       )}
