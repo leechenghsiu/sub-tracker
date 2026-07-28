@@ -96,3 +96,59 @@ export function getMonthlyEvents(
   events.sort((a, b) => a.date.getTime() - b.date.getTime())
   return events
 }
+
+const TAIPEI_OFFSET_MS = 8 * 60 * 60 * 1000 // 台灣 UTC+8，無日光節約
+
+export type DueReminder = { title: string; body: string; url: string }
+
+// 依 now（伺服器 UTC 時間）換算「台灣今天」，回傳今天該發送的提醒通知內容。
+// 為處理跨月位移（例如結帳日 31 + N 天落到下月、扣款日 1 - N 天落到上月），
+// 對上月／本月／下月都計算事件，再比對提醒日是否為台灣今天。
+export function getDueReminders(
+  subscriptions: Subscription[],
+  cards: Card[],
+  now: Date,
+): DueReminder[] {
+  const taipei = new Date(now.getTime() + TAIPEI_OFFSET_MS)
+  const ty = taipei.getUTCFullYear()
+  const tm = taipei.getUTCMonth()
+  const td = taipei.getUTCDate()
+
+  const months = [-1, 0, 1].map(delta => {
+    const d = new Date(ty, tm + delta, 1)
+    return { year: d.getFullYear(), month: d.getMonth() }
+  })
+
+  const seen = new Set<string>()
+  const out: DueReminder[] = []
+
+  for (const { year, month } of months) {
+    for (const ev of getMonthlyEvents(subscriptions, cards, year, month)) {
+      const r = ev.reminderDate
+      if (!r) continue
+      // 以日曆日整數比對（getMonthlyEvents 以本地建構日期，與測試機時區無關）。
+      if (r.getFullYear() !== ty || r.getMonth() !== tm || r.getDate() !== td) continue
+      const key = `${ev.sourceId}-${ev.kind}-${ev.date.getTime()}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push(toReminder(ev))
+    }
+  }
+
+  return out
+}
+
+function md(d: Date): string {
+  return `${d.getMonth() + 1}/${d.getDate()}`
+}
+
+function toReminder(ev: ScheduleEvent): DueReminder {
+  if (ev.kind === 'charge') {
+    const amount = ev.amount != null ? ` $${Math.floor(ev.amount)} ${ev.currency ?? ''}`.trimEnd() : ''
+    return { title: `扣款提醒：${ev.title}`, body: `${ev.title} 將於 ${md(ev.date)} 扣款${amount}`, url: '/' }
+  }
+  if (ev.kind === 'statement') {
+    return { title: `可繳費提醒：${ev.title}`, body: `${ev.title} 已結帳，可以開始繳費了`, url: '/' }
+  }
+  return { title: `繳費提醒：${ev.title}`, body: `${ev.title} 將於 ${md(ev.date)} 繳費到期`, url: '/' }
+}

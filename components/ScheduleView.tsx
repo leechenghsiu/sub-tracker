@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Subscription, Card as CardType } from "./types";
 import { getMonthlyEvents } from "@/app/lib/schedule";
 import CardManager from "./CardManager";
+import NotificationSetup from "./NotificationSetup";
 import ScheduleCalendar from "./ScheduleCalendar";
 import { EventRow } from "./ScheduleEventRow";
 import { Button } from "./ui/button";
@@ -56,6 +57,8 @@ export default function ScheduleView({ subscriptions, cards, token, onRefreshCar
           ))}
         </div>
       )}
+
+      <NotificationSetup token={token} onUnauthorized={onUnauthorized} />
 
       <CardManager cards={cards} token={token} onRefresh={onRefreshCards} onUnauthorized={onUnauthorized} />
     </div>
