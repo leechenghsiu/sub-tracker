@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { resolveDayInMonth, isChargeInMonth, getMonthlyEvents, shiftDays } from './schedule'
+import { resolveDayInMonth, isChargeInMonth, getMonthlyEvents, shiftDays, getDueReminders } from './schedule'
 import type { Subscription, Card } from '@/components/types'
+
+// 以「台灣某日的當地上午 9 點」建構一個 UTC Date（台灣 UTC+8 → 減 8 小時）。
+function taipeiMorning(y: number, m: number, d: number): Date {
+  return new Date(Date.UTC(y, m, d, 9 - 8, 0, 0))
+}
 
 describe('resolveDayInMonth', () => {
   it('回傳當月指定日', () => {
@@ -112,5 +117,74 @@ describe('getMonthlyEvents', () => {
     const events = getMonthlyEvents([sub], [card], 2026, 6)
     const times = events.map(e => e.date.getTime())
     expect(times).toEqual([...times].sort((a, b) => a - b))
+  })
+})
+
+describe('getDueReminders', () => {
+  // 扣款日 5 號，提前 1 天提醒 → 提醒日為每月 4 號
+  const sub: Subscription = {
+    _id: 's1', name: 'Netflix', price: 390, currency: 'TWD',
+    billingDate: '2026-01-05', cycle: 'monthly', createdAt: '', deletedAt: null,
+    selfRatio: 1, advanceRatio: 1, isAdvance: false, category: 'subscription',
+    reminder: { enabled: true, daysBefore: 1 },
+  }
+  // 結帳日 5 號隔天提醒（6 號）、截止日 22 號前 3 天提醒（19 號）
+  const card: Card = {
+    _id: 'c1', name: 'CUBE', statementDay: 5, dueDay: 22,
+    payReminder: { enabled: true, daysAfter: 1 },
+    dueReminder: { enabled: true, daysBefore: 3 },
+    createdAt: '', deletedAt: null,
+  }
+
+  it('命中扣款提醒日時回傳一則含金額的通知', () => {
+    const out = getDueReminders([sub], [], taipeiMorning(2026, 6, 4))
+    expect(out).toHaveLength(1)
+    expect(out[0].title).toContain('Netflix')
+    expect(out[0].body).toContain('7/5')
+    expect(out[0].body).toContain('390')
+  })
+
+  it('非提醒日時不回傳任何通知', () => {
+    expect(getDueReminders([sub], [], taipeiMorning(2026, 6, 10))).toHaveLength(0)
+  })
+
+  it('命中可繳費提醒日（結帳隔天）', () => {
+    const out = getDueReminders([], [card], taipeiMorning(2026, 6, 6))
+    expect(out).toHaveLength(1)
+    expect(out[0].body).toContain('可以')
+    expect(out[0].title).toContain('CUBE')
+  })
+
+  it('命中到期提醒日（截止前 3 天）', () => {
+    const out = getDueReminders([], [card], taipeiMorning(2026, 6, 19))
+    expect(out).toHaveLength(1)
+    expect(out[0].body).toContain('到期')
+    expect(out[0].body).toContain('7/22')
+  })
+
+  it('提醒關閉時不發送', () => {
+    const off: Subscription = { ...sub, reminder: { enabled: false, daysBefore: 1 } }
+    expect(getDueReminders([off], [], taipeiMorning(2026, 6, 4))).toHaveLength(0)
+  })
+
+  it('跨月邊界：扣款日 1 號提前 1 天，提醒落在上月最後一天', () => {
+    // 8 月 1 號扣款、提前 1 天 → 提醒日為 7/31
+    const monthStart: Subscription = { ...sub, _id: 's2', billingDate: '2026-01-01' }
+    const out = getDueReminders([monthStart], [], taipeiMorning(2026, 6, 31))
+    expect(out).toHaveLength(1)
+    expect(out[0].body).toContain('8/1')
+  })
+
+  it('時區：以台灣日期為準（UTC 仍是前一天時不誤發）', () => {
+    // 台灣時間 7/4 00:30 = UTC 7/3 16:30，應算 7/4
+    const t = new Date(Date.UTC(2026, 6, 3, 16, 30, 0))
+    expect(getDueReminders([sub], [], t)).toHaveLength(1)
+  })
+
+  it('同時命中多筆時全部回傳', () => {
+    // 台灣 7/6：sub 的提醒日是 7/4（不中），card 結帳隔天 7/6（中）
+    const sub6: Subscription = { ...sub, _id: 's3', billingDate: '2026-01-07' } // 提醒日 7/6
+    const out = getDueReminders([sub6], [card], taipeiMorning(2026, 6, 6))
+    expect(out.length).toBe(2)
   })
 })
