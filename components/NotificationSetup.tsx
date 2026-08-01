@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Button } from "./ui/button";
-import { Bell, BellOff, BellRing, Loader2, Send } from "lucide-react";
+import { Bell, BellOff, BellRing, Loader2, Send, FlaskConical } from "lucide-react";
 
 interface Props {
   token: string;
@@ -23,6 +23,15 @@ function urlBase64ToUint8Array(base64String: string) {
   const arr = new Uint8Array(new ArrayBuffer(raw.length));
   for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
   return arr;
+}
+
+// 為可能永遠 pending 的 Promise（iOS 的 serviceWorker.ready / pushManager.subscribe
+// 有時不會 settle）加逾時保護，避免 UI 無限轉圈。
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error("timeout")), ms)),
+  ]);
 }
 
 function isIOS(): boolean {
@@ -86,18 +95,24 @@ export default function NotificationSetup({ token, onUnauthorized }: Props) {
       const perm = await Notification.requestPermission();
       if (perm !== "granted") {
         setStatus(perm === "denied" ? "denied" : "subscribable");
+        setMsg(perm === "denied" ? "已封鎖通知權限" : "尚未允許通知權限");
         return;
       }
       const keyRes = await fetch("/api/push/vapid", { headers: { Authorization: `Bearer ${token}` } });
       if (keyRes.status === 401) return onUnauthorized();
-      if (!keyRes.ok) throw new Error("vapid");
+      if (!keyRes.ok) throw new Error("伺服器缺少 VAPID 金鑰設定");
       const { publicKey } = await keyRes.json();
+      if (!publicKey) throw new Error("伺服器缺少 VAPID 金鑰設定");
 
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
-      });
+      // 這兩步在 iOS 有機率永遠 pending，加逾時避免無限轉圈。
+      const reg = await withTimeout(navigator.serviceWorker.ready, 8000);
+      const sub = await withTimeout(
+        reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey),
+        }),
+        15000,
+      );
 
       const res = await fetch("/api/push/subscribe", {
         method: "POST",
@@ -108,8 +123,13 @@ export default function NotificationSetup({ token, onUnauthorized }: Props) {
       if (!res.ok) throw new Error("subscribe");
       setStatus("subscribed");
       setMsg("已開啟通知");
-    } catch {
-      setMsg("開啟通知失敗，請稍後再試");
+    } catch (err) {
+      const detail = err instanceof Error && err.message === "timeout"
+        ? "開啟逾時，請將 App 從多工列滑掉重開後再試"
+        : err instanceof Error && err.message.includes("VAPID")
+          ? "伺服器尚未設定 VAPID 金鑰（環境變數）"
+          : "開啟通知失敗，請稍後再試";
+      setMsg(detail);
     } finally {
       setBusy(false);
     }
@@ -119,7 +139,7 @@ export default function NotificationSetup({ token, onUnauthorized }: Props) {
     setBusy(true);
     setMsg(null);
     try {
-      const reg = await navigator.serviceWorker.ready;
+      const reg = await withTimeout(navigator.serviceWorker.ready, 8000);
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
         await fetch("/api/push/unsubscribe", {
@@ -138,6 +158,7 @@ export default function NotificationSetup({ token, onUnauthorized }: Props) {
     }
   }
 
+  // 伺服器端測試：走完整推播管線（web-push → APNs → 裝置），需伺服器已設定 VAPID。
   async function sendTest() {
     setBusy(true);
     setMsg(null);
@@ -152,6 +173,37 @@ export default function NotificationSetup({ token, onUnauthorized }: Props) {
       setMsg(data.devices > 0 ? "測試通知已送出" : "沒有已訂閱的裝置");
     } catch {
       setMsg("測試通知發送失敗（請確認伺服器已設定 VAPID 金鑰）");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // 本機測試：直接用 registration.showNotification 在本機顯示，不經伺服器、
+  // 不需 VAPID。用來驗證「這台裝置能否顯示通知」，與推播管線問題隔離。
+  async function sendLocalTest() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      if (Notification.permission !== "granted") {
+        const perm = await Notification.requestPermission();
+        if (perm !== "granted") {
+          setMsg(perm === "denied" ? "已封鎖通知權限" : "尚未允許通知權限");
+          return;
+        }
+      }
+      const reg = await withTimeout(navigator.serviceWorker.ready, 8000);
+      await reg.showNotification("SubTracker 測試通知", {
+        body: "這是一則本機測試通知 🎉",
+        icon: "/web-app-manifest-192x192.png",
+        badge: "/favicon-96x96.png",
+        tag: "local-test",
+      });
+      setMsg("已顯示本機測試通知（若沒看到，請檢查系統通知設定）");
+    } catch (err) {
+      const detail = err instanceof Error && err.message === "timeout"
+        ? "Service Worker 尚未就緒，請將 App 從多工列滑掉重開後再試"
+        : "本機測試失敗，請稍後再試";
+      setMsg(detail);
     } finally {
       setBusy(false);
     }
@@ -189,6 +241,10 @@ export default function NotificationSetup({ token, onUnauthorized }: Props) {
             {busy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <BellRing className="w-4 h-4 mr-1.5" />}
             開啟通知
           </Button>
+          <Button variant="outline" onClick={sendLocalTest} disabled={busy} className="w-full">
+            <FlaskConical className="w-4 h-4 mr-1.5" />
+            本機測試通知
+          </Button>
         </>
       )}
 
@@ -202,11 +258,15 @@ export default function NotificationSetup({ token, onUnauthorized }: Props) {
               {busy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Send className="w-4 h-4 mr-1.5" />}
               發送測試
             </Button>
-            <Button variant="ghost" onClick={disable} disabled={busy}>
-              <BellOff className="w-4 h-4 mr-1.5" />
-              關閉通知
+            <Button variant="outline" onClick={sendLocalTest} disabled={busy}>
+              <FlaskConical className="w-4 h-4 mr-1.5" />
+              本機測試
             </Button>
           </div>
+          <Button variant="ghost" onClick={disable} disabled={busy} className="w-full">
+            <BellOff className="w-4 h-4 mr-1.5" />
+            關閉通知
+          </Button>
         </>
       )}
 
