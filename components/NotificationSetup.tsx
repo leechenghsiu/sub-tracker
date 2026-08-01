@@ -83,14 +83,13 @@ async function fetchStatus(url: string): Promise<string> {
   }
 }
 
-// 深度診斷：抓 /sw.js 以及它 import 的 worker / workbox 檔案，回報 HTTP 狀態。
-// 若 worker 或 workbox 是 404，就是 SW 安裝失敗、永遠 active 不了的原因。
+// 深度診斷：抓 /sw.js（含 Content-Type）與其 import 的檔案狀態，
+// 並實際跑一次 register() 把確切錯誤印出來——這是判斷「為何 SW 註冊不起來」的關鍵。
 async function deepDiag(): Promise<string> {
   const lines: string[] = [await swDiag()];
-  const swStatus = await fetchStatus("/sw.js");
-  lines.push(`/sw.js → ${swStatus}`);
   try {
     const res = await fetch("/sw.js", { cache: "no-store" });
+    lines.push(`/sw.js → ${res.status} (${res.headers.get("content-type") || "無 CT"})`);
     if (res.ok) {
       const text = await res.text();
       const worker = text.match(/importScripts\("([^"]+)"\)/);
@@ -99,7 +98,14 @@ async function deepDiag(): Promise<string> {
       if (workbox) lines.push(`/${workbox[1]}.js → ${await fetchStatus("/" + workbox[1] + ".js")}`);
     }
   } catch {
-    /* ignore */
+    lines.push("/sw.js → fetch 失敗");
+  }
+  // 實際嘗試註冊，回報成功 scope 或確切錯誤（name: message）。
+  try {
+    const reg = await navigator.serviceWorker.register("/sw.js");
+    lines.push(`register OK · scope:${reg.scope.replace(location.origin, "")}`);
+  } catch (e) {
+    lines.push(`register 失敗 · ${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`);
   }
   return lines.join("\n");
 }
