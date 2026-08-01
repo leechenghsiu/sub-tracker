@@ -100,10 +100,23 @@ async function deepDiag(): Promise<string> {
   } catch {
     lines.push("/sw.js → fetch 失敗");
   }
-  // 實際嘗試註冊，回報成功 scope 或確切錯誤（name: message）。
+  // 實際註冊並追蹤安裝生命週期：走到 activated=成功，redundant=install 失敗被丟棄。
   try {
     const reg = await navigator.serviceWorker.register("/sw.js");
-    lines.push(`register OK · scope:${reg.scope.replace(location.origin, "")}`);
+    const sw = reg.installing || reg.waiting || reg.active;
+    let state = sw ? sw.state : "無 worker";
+    if (sw && state !== "activated" && state !== "redundant") {
+      state = await new Promise<string>(resolve => {
+        const t = setTimeout(() => resolve(`${sw.state}(逾時)`), 8000);
+        sw.addEventListener("statechange", () => {
+          if (sw.state === "activated" || sw.state === "redundant") {
+            clearTimeout(t);
+            resolve(sw.state);
+          }
+        });
+      });
+    }
+    lines.push(`register OK · state:${state}`);
   } catch (e) {
     lines.push(`register 失敗 · ${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`);
   }
