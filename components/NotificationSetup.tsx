@@ -74,6 +74,36 @@ async function swDiag(): Promise<string> {
   }
 }
 
+async function fetchStatus(url: string): Promise<string> {
+  try {
+    const res = await fetch(url, { cache: "no-store" });
+    return String(res.status);
+  } catch {
+    return "err";
+  }
+}
+
+// 深度診斷：抓 /sw.js 以及它 import 的 worker / workbox 檔案，回報 HTTP 狀態。
+// 若 worker 或 workbox 是 404，就是 SW 安裝失敗、永遠 active 不了的原因。
+async function deepDiag(): Promise<string> {
+  const lines: string[] = [await swDiag()];
+  const swStatus = await fetchStatus("/sw.js");
+  lines.push(`/sw.js → ${swStatus}`);
+  try {
+    const res = await fetch("/sw.js", { cache: "no-store" });
+    if (res.ok) {
+      const text = await res.text();
+      const worker = text.match(/importScripts\("([^"]+)"\)/);
+      const workbox = text.match(/define\(\["\.\/([^"]+)"/);
+      if (worker) lines.push(`/${worker[1]} → ${await fetchStatus("/" + worker[1])}`);
+      if (workbox) lines.push(`/${workbox[1]}.js → ${await fetchStatus("/" + workbox[1] + ".js")}`);
+    }
+  } catch {
+    /* ignore */
+  }
+  return lines.join("\n");
+}
+
 function isIOS(): boolean {
   return /iphone|ipad|ipod/i.test(navigator.userAgent);
 }
@@ -94,6 +124,16 @@ export default function NotificationSetup({ token, onUnauthorized }: Props) {
 
   async function refreshDiag() {
     if ("serviceWorker" in navigator) setDiag(await swDiag());
+  }
+
+  async function checkFiles() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      setDiag(await deepDiag());
+    } finally {
+      setBusy(false);
+    }
   }
 
   useEffect(() => {
@@ -343,14 +383,19 @@ export default function NotificationSetup({ token, onUnauthorized }: Props) {
       )}
 
       {showReregister && (
-        <Button variant="ghost" size="sm" onClick={reregister} disabled={busy} className="w-full text-muted-foreground">
-          {busy ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
-          重新註冊 SW
-        </Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="ghost" size="sm" onClick={reregister} disabled={busy} className="text-muted-foreground">
+            {busy ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
+            重新註冊 SW
+          </Button>
+          <Button variant="ghost" size="sm" onClick={checkFiles} disabled={busy} className="text-muted-foreground">
+            檢查 SW 檔案
+          </Button>
+        </div>
       )}
 
       {msg && <p className="text-xs text-muted-foreground">{msg}</p>}
-      {diag && <p className="text-[11px] text-muted-foreground/70 font-mono">{diag}</p>}
+      {diag && <p className="text-[11px] text-muted-foreground/70 font-mono whitespace-pre-line">{diag}</p>}
     </div>
   );
 }
