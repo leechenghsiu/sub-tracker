@@ -57,9 +57,15 @@ export default function NotificationSetup({ token, onUnauthorized }: Props) {
         if (!cancelled) setStatus("denied");
         return;
       }
+      // serviceWorker.ready 在 SW 尚未 active 時會一直 pending，
+      // 不能讓整張卡片卡在 loading 而隱形；用 timeout 保底成 subscribable。
       try {
-        const reg = await navigator.serviceWorker.ready;
-        const sub = await reg.pushManager.getSubscription();
+        const readyOrTimeout = Promise.race([
+          navigator.serviceWorker.ready,
+          new Promise<null>(resolve => setTimeout(() => resolve(null), 3000)),
+        ]);
+        const reg = await readyOrTimeout;
+        const sub = reg ? await reg.pushManager.getSubscription() : null;
         if (!cancelled) setStatus(sub ? "subscribed" : "subscribable");
       } catch {
         if (!cancelled) setStatus("subscribable");
