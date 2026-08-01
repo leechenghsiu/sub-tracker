@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Button } from "./ui/button";
-import { Bell, BellOff, BellRing, Loader2, Send, FlaskConical } from "lucide-react";
+import { Bell, BellOff, BellRing, Loader2, Send, FlaskConical, RefreshCw } from "lucide-react";
 
 interface Props {
   token: string;
@@ -25,13 +25,53 @@ function urlBase64ToUint8Array(base64String: string) {
   return arr;
 }
 
-// 為可能永遠 pending 的 Promise（iOS 的 serviceWorker.ready / pushManager.subscribe
-// 有時不會 settle）加逾時保護，避免 UI 無限轉圈。
+// 為可能永遠 pending 的 Promise 加逾時保護，避免 UI 無限轉圈。
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     p,
     new Promise<T>((_, reject) => setTimeout(() => reject(new Error("timeout")), ms)),
   ]);
+}
+
+// 取得一個「已 active」的 service worker registration。
+// 不依賴會在 SW 未 active 時永遠 pending 的 navigator.serviceWorker.ready，
+// 改為主動取得 / 註冊，並監聽狀態變化等它 active。
+async function ensureReady(timeoutMs: number): Promise<ServiceWorkerRegistration> {
+  let reg = await navigator.serviceWorker.getRegistration();
+  if (!reg) reg = await navigator.serviceWorker.register("/sw.js");
+  const r = reg;
+  if (r.active) return r;
+  return withTimeout(
+    new Promise<ServiceWorkerRegistration>(resolve => {
+      const done = () => {
+        if (r.active) resolve(r);
+      };
+      done();
+      const w = r.installing || r.waiting;
+      w?.addEventListener("statechange", done);
+      navigator.serviceWorker.addEventListener("controllerchange", done);
+    }),
+    timeoutMs,
+  );
+}
+
+// 產生一行人類可讀的 SW 診斷字串，方便回報問題。
+async function swDiag(): Promise<string> {
+  try {
+    const ctrl = navigator.serviceWorker.controller ? "有" : "無";
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) return `SW 未註冊 · controller:${ctrl}`;
+    const state = reg.active
+      ? "active"
+      : reg.waiting
+        ? "waiting"
+        : reg.installing
+          ? "installing"
+          : "無 worker";
+    return `SW:${state} · controller:${ctrl}`;
+  } catch {
+    return "SW 診斷失敗";
+  }
 }
 
 function isIOS(): boolean {
@@ -50,6 +90,11 @@ export default function NotificationSetup({ token, onUnauthorized }: Props) {
   const [status, setStatus] = useState<Status>("loading");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [diag, setDiag] = useState<string | null>(null);
+
+  async function refreshDiag() {
+    if ("serviceWorker" in navigator) setDiag(await swDiag());
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -64,23 +109,20 @@ export default function NotificationSetup({ token, onUnauthorized }: Props) {
         if (!cancelled) setStatus("unsupported");
         return;
       }
+      if (!cancelled) setDiag(await swDiag());
       if (Notification.permission === "denied") {
         if (!cancelled) setStatus("denied");
         return;
       }
-      // serviceWorker.ready 在 SW 尚未 active 時會一直 pending，
-      // 不能讓整張卡片卡在 loading 而隱形；用 timeout 保底成 subscribable。
+      // 用 ensureReady 主動確保 SW 就緒；逾時就先讓卡片顯示為 subscribable。
       try {
-        const readyOrTimeout = Promise.race([
-          navigator.serviceWorker.ready,
-          new Promise<null>(resolve => setTimeout(() => resolve(null), 3000)),
-        ]);
-        const reg = await readyOrTimeout;
-        const sub = reg ? await reg.pushManager.getSubscription() : null;
+        const reg = await ensureReady(4000);
+        const sub = await reg.pushManager.getSubscription();
         if (!cancelled) setStatus(sub ? "subscribed" : "subscribable");
       } catch {
         if (!cancelled) setStatus("subscribable");
       }
+      if (!cancelled) setDiag(await swDiag());
     }
     init();
     return () => {
@@ -100,12 +142,11 @@ export default function NotificationSetup({ token, onUnauthorized }: Props) {
       }
       const keyRes = await fetch("/api/push/vapid", { headers: { Authorization: `Bearer ${token}` } });
       if (keyRes.status === 401) return onUnauthorized();
-      if (!keyRes.ok) throw new Error("伺服器缺少 VAPID 金鑰設定");
+      if (!keyRes.ok) throw new Error("VAPID");
       const { publicKey } = await keyRes.json();
-      if (!publicKey) throw new Error("伺服器缺少 VAPID 金鑰設定");
+      if (!publicKey) throw new Error("VAPID");
 
-      // 這兩步在 iOS 有機率永遠 pending，加逾時避免無限轉圈。
-      const reg = await withTimeout(navigator.serviceWorker.ready, 8000);
+      const reg = await ensureReady(10000);
       const sub = await withTimeout(
         reg.pushManager.subscribe({
           userVisibleOnly: true,
@@ -125,13 +166,14 @@ export default function NotificationSetup({ token, onUnauthorized }: Props) {
       setMsg("已開啟通知");
     } catch (err) {
       const detail = err instanceof Error && err.message === "timeout"
-        ? "開啟逾時，請將 App 從多工列滑掉重開後再試"
-        : err instanceof Error && err.message.includes("VAPID")
+        ? "Service Worker 未就緒（逾時），請按下方「重新註冊 SW」再試"
+        : err instanceof Error && err.message === "VAPID"
           ? "伺服器尚未設定 VAPID 金鑰（環境變數）"
           : "開啟通知失敗，請稍後再試";
       setMsg(detail);
     } finally {
       setBusy(false);
+      refreshDiag();
     }
   }
 
@@ -139,7 +181,7 @@ export default function NotificationSetup({ token, onUnauthorized }: Props) {
     setBusy(true);
     setMsg(null);
     try {
-      const reg = await withTimeout(navigator.serviceWorker.ready, 8000);
+      const reg = await ensureReady(8000);
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
         await fetch("/api/push/unsubscribe", {
@@ -155,6 +197,7 @@ export default function NotificationSetup({ token, onUnauthorized }: Props) {
       setMsg("關閉通知失敗");
     } finally {
       setBusy(false);
+      refreshDiag();
     }
   }
 
@@ -191,7 +234,7 @@ export default function NotificationSetup({ token, onUnauthorized }: Props) {
           return;
         }
       }
-      const reg = await withTimeout(navigator.serviceWorker.ready, 8000);
+      const reg = await ensureReady(8000);
       await reg.showNotification("SubTracker 測試通知", {
         body: "這是一則本機測試通知 🎉",
         icon: "/web-app-manifest-192x192.png",
@@ -201,15 +244,44 @@ export default function NotificationSetup({ token, onUnauthorized }: Props) {
       setMsg("已顯示本機測試通知（若沒看到，請檢查系統通知設定）");
     } catch (err) {
       const detail = err instanceof Error && err.message === "timeout"
-        ? "Service Worker 尚未就緒，請將 App 從多工列滑掉重開後再試"
+        ? "Service Worker 未就緒，請按下方「重新註冊 SW」再試"
         : "本機測試失敗，請稍後再試";
       setMsg(detail);
     } finally {
       setBusy(false);
+      refreshDiag();
+    }
+  }
+
+  // 強制重新註冊 SW：先移除舊 registration 再重新註冊 /sw.js，
+  // 解決 iOS PWA 舊 SW 卡住 / 未 active 的情況。
+  async function reregister() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+      await navigator.serviceWorker.register("/sw.js");
+      await ensureReady(10000);
+      setMsg("已重新註冊 Service Worker，請再試一次");
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = reg ? await reg.pushManager.getSubscription() : null;
+      setStatus(sub ? "subscribed" : "subscribable");
+    } catch (err) {
+      const detail = err instanceof Error && err.message === "timeout"
+        ? "重新註冊後仍未就緒，請將 App 從多工列滑掉重開"
+        : "重新註冊失敗";
+      setMsg(detail);
+    } finally {
+      setBusy(false);
+      refreshDiag();
     }
   }
 
   if (status === "loading") return null;
+
+  const showReregister =
+    status === "subscribable" || status === "subscribed" || status === "unsupported";
 
   return (
     <div className="rounded-lg border bg-card p-4 space-y-3">
@@ -270,7 +342,15 @@ export default function NotificationSetup({ token, onUnauthorized }: Props) {
         </>
       )}
 
+      {showReregister && (
+        <Button variant="ghost" size="sm" onClick={reregister} disabled={busy} className="w-full text-muted-foreground">
+          {busy ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
+          重新註冊 SW
+        </Button>
+      )}
+
       {msg && <p className="text-xs text-muted-foreground">{msg}</p>}
+      {diag && <p className="text-[11px] text-muted-foreground/70 font-mono">{diag}</p>}
     </div>
   );
 }
