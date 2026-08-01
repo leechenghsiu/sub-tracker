@@ -45,12 +45,14 @@ export default function NotificationSetup({ token, onUnauthorized }: Props) {
   useEffect(() => {
     let cancelled = false;
     async function init() {
-      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-        if (!cancelled) setStatus("unsupported");
-        return;
-      }
+      // iOS 只在「主畫面 PWA」才開放 Push API，一般 Safari 沒有 PushManager。
+      // 必須先判斷 iOS 未安裝，否則會誤落到「不支援」而非「請先加入主畫面」。
       if (isIOS() && !isStandalone()) {
         if (!cancelled) setStatus("ios-needs-install");
+        return;
+      }
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        if (!cancelled) setStatus("unsupported");
         return;
       }
       if (Notification.permission === "denied") {
