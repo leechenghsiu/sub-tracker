@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveDayInMonth, isChargeInMonth, getMonthlyEvents, shiftDays, getDueReminders } from './schedule'
+import { resolveDayInMonth, isChargeInMonth, getMonthlyEvents, shiftDays, getDueReminders, normalizeDaysBefore } from './schedule'
 import type { Subscription, Card } from '@/components/types'
 
 // 以「台灣某日的當地上午 9 點」建構一個 UTC Date（台灣 UTC+8 → 減 8 小時）。
@@ -30,6 +30,27 @@ describe('isChargeInMonth', () => {
   it('yearly 每 12 個月命中一次', () => {
     expect(isChargeInMonth('2026-01-10', 'yearly', 2027, 0)).toBe(true)   // +12
     expect(isChargeInMonth('2026-01-10', 'yearly', 2026, 6)).toBe(false)  // +6
+  })
+})
+
+describe('normalizeDaysBefore', () => {
+  it('保留 0（扣款當天提醒）', () => {
+    expect(normalizeDaysBefore('0')).toBe(0)
+  })
+  it('一般天數原樣回傳', () => {
+    expect(normalizeDaysBefore('3')).toBe(3)
+  })
+  it('空字串回退為 1', () => {
+    expect(normalizeDaysBefore('')).toBe(1)
+  })
+  it('非數字回退為 1', () => {
+    expect(normalizeDaysBefore('abc')).toBe(1)
+  })
+  it('負數視為 0（不會提醒到扣款日之後）', () => {
+    expect(normalizeDaysBefore('-2')).toBe(0)
+  })
+  it('小數無條件捨去', () => {
+    expect(normalizeDaysBefore('2.7')).toBe(2)
   })
 })
 
@@ -160,6 +181,18 @@ describe('getDueReminders', () => {
     expect(out).toHaveLength(1)
     expect(out[0].body).toContain('到期')
     expect(out[0].body).toContain('7/22')
+  })
+
+  it('daysBefore 為 0 時在扣款當天提醒', () => {
+    const sameDay: Subscription = { ...sub, _id: 's4', reminder: { enabled: true, daysBefore: 0 } }
+    const out = getDueReminders([sameDay], [], taipeiMorning(2026, 6, 5))
+    expect(out).toHaveLength(1)
+    expect(out[0].body).toContain('7/5')
+  })
+
+  it('daysBefore 為 0 時不會在前一天誤發', () => {
+    const sameDay: Subscription = { ...sub, _id: 's5', reminder: { enabled: true, daysBefore: 0 } }
+    expect(getDueReminders([sameDay], [], taipeiMorning(2026, 6, 4))).toHaveLength(0)
   })
 
   it('提醒關閉時不發送', () => {

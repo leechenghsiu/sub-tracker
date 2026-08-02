@@ -9,6 +9,14 @@ export function resolveDayInMonth(day: number, year: number, month: number): Dat
   return new Date(year, month, Math.min(day, lastDay))
 }
 
+// 將表單輸入的「提前天數」轉為合法值。0 代表扣款當天提醒，必須保留，
+// 因此不能用 `Number(x) || 1` —— 那會把 0 當成 falsy 而回退成 1。
+export function normalizeDaysBefore(value: string): number {
+  const n = Number(value)
+  if (value.trim() === '' || !Number.isFinite(n)) return 1
+  return Math.max(0, Math.floor(n))
+}
+
 // 以某日期為基準，加減 n 天（可跨月）。
 export function shiftDays(date: Date, n: number): Date {
   const d = new Date(date)

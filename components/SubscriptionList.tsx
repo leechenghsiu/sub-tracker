@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 import { formatNumberWithCommas } from "@/lib/utils";
 import { Input } from "./ui/input";
 import { Checkbox } from "./ui/checkbox";
+import ReminderField from "./ReminderField";
+import { normalizeDaysBefore } from "@/app/lib/schedule";
 
 interface SubscriptionListProps {
   subscriptions: Subscription[];
@@ -33,6 +35,9 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState<Subscription | null>(null);
   const [editDate, setEditDate] = useState<Date | undefined>(undefined);
+  // 提醒欄位另外用字串 state 保存，避免使用者清空輸入框時被立即改寫成預設值。
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderDays, setReminderDays] = useState("1");
 
   function getMyAmount(sub: Subscription): number {
     const total = Number(sub.price) || 0;
@@ -147,7 +152,11 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
         body: JSON.stringify({
           ...form,
           price: parseFloat(String(form.price)),
-          billingDate: new Date(form.billingDate)
+          billingDate: new Date(form.billingDate),
+          reminder: {
+            enabled: reminderEnabled,
+            daysBefore: normalizeDaysBefore(reminderDays),
+          }
         })
       });
       if (res.status === 401) { onUnauthorized(); return; }
@@ -378,6 +387,16 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
                     <option value="expense">固定支出</option>
                   </select>
                 </div>
+                <ReminderField
+                  id="reminder-edit"
+                  enabled={editMode ? reminderEnabled : (selected.reminder?.enabled ?? false)}
+                  daysBefore={editMode ? reminderDays : String(selected.reminder?.daysBefore ?? 1)}
+                  disabled={!editMode}
+                  onChange={next => {
+                    setReminderEnabled(next.enabled);
+                    setReminderDays(next.daysBefore);
+                  }}
+                />
                 <div>
                   <label className="block mb-1 text-sm font-medium">備註</label>
                   <Input value={editMode && form ? form.note || "" : selected.note || ""} onChange={e => editMode && form && setForm({ ...form, note: e.target.value })} disabled={!editMode} placeholder="備註 (可選)" />
@@ -393,11 +412,13 @@ export default function SubscriptionList({ subscriptions, mode, token, onRefresh
                     </>
                   ) : (
                     <>
-                      <Button type="button" variant="outline" onClick={e => { 
-                        e.preventDefault(); 
-                        setEditMode(true); 
-                        setForm(selected); 
+                      <Button type="button" variant="outline" onClick={e => {
+                        e.preventDefault();
+                        setEditMode(true);
+                        setForm(selected);
                         setEditDate(selected.billingDate ? new Date(selected.billingDate) : undefined);
+                        setReminderEnabled(selected.reminder?.enabled ?? false);
+                        setReminderDays(String(selected.reminder?.daysBefore ?? 1));
                       }}>編輯</Button>
                       <Button type="button" variant="destructive" onClick={() => setConfirmDelete(true)}>刪除</Button>
                     </>

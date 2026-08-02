@@ -17,11 +17,13 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Subscription, Card as CardType } from "../components/types";
+import { normalizeDaysBefore } from "./lib/schedule";
 import EmptyState from "../components/EmptyState";
 import OverviewTabs from "../components/OverviewTabs";
 import SplitBillList from "../components/SplitBillList";
 import SubscriptionSkeleton from "../components/SubscriptionSkeleton";
 import ScheduleView from "../components/ScheduleView";
+import ReminderField from "../components/ReminderField";
 import Image from "next/image";
 import { Montserrat } from "next/font/google";
 const montserrat = Montserrat({ subsets: ["latin"], weight: "700" });
@@ -297,7 +299,7 @@ export default function Home() {
         category: form.category,
         reminder: {
           enabled: reminderEnabled,
-          daysBefore: Number(reminderDaysBefore) || 1,
+          daysBefore: normalizeDaysBefore(reminderDaysBefore),
         },
       };
       if (form.isAdvance && memberTags.length > 0) {
@@ -560,21 +562,12 @@ export default function Home() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Checkbox id="reminder" checked={form.reminderEnabled} onCheckedChange={v => setForm(f => ({ ...f, reminderEnabled: !!v }))} />
-                    <label htmlFor="reminder" className="text-sm select-none cursor-pointer">到期前提醒</label>
-                  </div>
-                  {form.reminderEnabled && (
-                    <div className="mt-2 flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">提前</span>
-                      <Input type="number" inputMode="numeric" min={0} className="w-20"
-                        value={form.reminderDaysBefore}
-                        onChange={e => setForm(f => ({ ...f, reminderDaysBefore: e.target.value }))} />
-                      <span className="text-sm text-muted-foreground">天</span>
-                    </div>
-                  )}
-                </div>
+                <ReminderField
+                  id="reminder-new"
+                  enabled={form.reminderEnabled}
+                  daysBefore={form.reminderDaysBefore}
+                  onChange={next => setForm(f => ({ ...f, reminderEnabled: next.enabled, reminderDaysBefore: next.daysBefore }))}
+                />
                 <div>
                   <label className="block mb-1 text-sm font-medium">備註</label>
                   <Input placeholder="請輸入備註 (可選)" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
